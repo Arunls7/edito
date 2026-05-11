@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@deepgram/sdk";
 import { auth } from "@clerk/nextjs/server";
+import { hasFullClerkConfig } from "@/lib/clerk-config";
 
 const deepgram = createClient(process.env.DEEPGRAM_API_KEY!);
 
 export async function POST(req: NextRequest) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (hasFullClerkConfig()) {
+    const { userId } = await auth();
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const { audioUrl } = await req.json();
   if (!audioUrl || typeof audioUrl !== "string") {
