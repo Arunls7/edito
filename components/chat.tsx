@@ -165,7 +165,7 @@ export function Chat({ projectId, onBusyChange }: Props) {
           />
           <div className="flex items-center justify-between gap-2 px-1 pb-1">
             <span className="inline-flex items-center rounded-md border border-white/[0.08] bg-black/40 px-2 py-1 text-[10px] font-medium text-white/55">
-              Claude Sonnet 4.6
+              Llama 3.3 70B
             </span>
             <button
               type="button"

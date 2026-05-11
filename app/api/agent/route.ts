@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import Groq from "groq-sdk";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { hasFullClerkConfig } from "@/lib/clerk-config";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-// --- Schémas des tool calls ---
 const ToolSchemas = {
   trim_clip: z.object({
     clipId: z.string(),
@@ -31,64 +28,68 @@ const ToolSchemas = {
   }),
 } as const;
 
-const TOOLS: Anthropic.Messages.Tool[] = [
+const TOOLS: Groq.Chat.ChatCompletionTool[] = [
   {
-    name: "trim_clip",
-    description: "Réduit un clip à un intervalle donné [start, end] en secondes.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        clipId: { type: "string" },
-        start: { type: "number", description: "Début en secondes" },
-        end: { type: "number", description: "Fin en secondes" },
-      },
-      required: ["clipId", "start", "end"],
-    },
-  },
-  {
-    name: "remove_silences",
-    description:
-      "Détecte et supprime les silences d'une piste audio. Utilise Silero VAD côté serveur.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        trackId: { type: "string" },
-        threshold_db: {
-          type: "number",
-          description: "Seuil dB en-dessous duquel c'est un silence (défaut -40)",
+    type: "function",
+    function: {
+      name: "trim_clip",
+      description: "Réduit un clip à un intervalle donné [start, end] en secondes.",
+      parameters: {
+        type: "object",
+        properties: {
+          clipId: { type: "string" },
+          start: { type: "number", description: "Début en secondes" },
+          end: { type: "number", description: "Fin en secondes" },
         },
-        padding_ms: {
-          type: "number",
-          description: "Marge avant/après chaque mot pour éviter coupes brutales (défaut 150)",
+        required: ["clipId", "start", "end"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "remove_silences",
+      description: "Détecte et supprime les silences d'une piste audio.",
+      parameters: {
+        type: "object",
+        properties: {
+          trackId: { type: "string" },
+          threshold_db: { type: "number", description: "Seuil dB (défaut -40)" },
+          padding_ms: { type: "number", description: "Marge avant/après chaque mot (défaut 150)" },
         },
+        required: ["trackId"],
       },
-      required: ["trackId"],
     },
   },
   {
-    name: "add_captions",
-    description: "Génère et insère des captions stylées synchronisées avec le transcript.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        trackId: { type: "string" },
-        style: { type: "string", enum: ["minimal", "bold", "kinetic"] },
+    type: "function",
+    function: {
+      name: "add_captions",
+      description: "Génère et insère des captions stylées synchronisées avec le transcript.",
+      parameters: {
+        type: "object",
+        properties: {
+          trackId: { type: "string" },
+          style: { type: "string", enum: ["minimal", "bold", "kinetic"] },
+        },
+        required: ["trackId", "style"],
       },
-      required: ["trackId", "style"],
     },
   },
   {
-    name: "generate_clips",
-    description:
-      "Découpe une vidéo longue en N clips courts pour les réseaux. Utilise le transcript pour trouver les moments forts.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        sourceClipId: { type: "string" },
-        count: { type: "number", description: "Nombre de clips à générer" },
-        theme: { type: "string", description: "Thème optionnel pour filtrer" },
+    type: "function",
+    function: {
+      name: "generate_clips",
+      description: "Découpe une vidéo longue en N clips courts pour les réseaux.",
+      parameters: {
+        type: "object",
+        properties: {
+          sourceClipId: { type: "string" },
+          count: { type: "number", description: "Nombre de clips à générer" },
+          theme: { type: "string", description: "Thème optionnel pour filtrer" },
+        },
+        required: ["sourceClipId", "count"],
       },
-      required: ["sourceClipId", "count"],
     },
   },
 ];
@@ -108,12 +109,7 @@ const RequestSchema = z.object({
   projectId: z.string(),
   message: z.string().min(1).max(2000),
   history: z
-    .array(
-      z.object({
-        role: z.enum(["user", "assistant"]),
-        content: z.string(),
-      })
-    )
+    .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() }))
     .max(20)
     .default([]),
 });
@@ -127,41 +123,35 @@ export async function POST(req: NextRequest) {
   let body;
   try {
     body = RequestSchema.parse(await req.json());
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  const messages: Anthropic.Messages.MessageParam[] = [
-    ...body.history.map((h) => ({
-      role: h.role,
-      content: h.content,
-    })),
-    { role: "user" as const, content: body.message },
+  const messages: Groq.Chat.ChatCompletionMessageParam[] = [
+    { role: "system", content: SYSTEM_PROMPT },
+    ...body.history.map((h) => ({ role: h.role, content: h.content }) as Groq.Chat.ChatCompletionMessageParam),
+    { role: "user", content: body.message },
   ];
 
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",
+    const response = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
       max_tokens: 1024,
-      system: SYSTEM_PROMPT,
       tools: TOOLS,
       messages,
     });
 
-    let text = "";
+    const message = response.choices[0]?.message;
+    const text = message?.content ?? "";
     const toolCalls: { name: string; input: unknown }[] = [];
 
-    for (const block of response.content) {
-      if (block.type === "text") text += block.text;
-      if (block.type === "tool_use") {
-        // Validation Zod par tool
-        const schema = ToolSchemas[block.name as keyof typeof ToolSchemas];
-        if (!schema) continue;
-        const parsed = schema.safeParse(block.input);
-        if (parsed.success) {
-          toolCalls.push({ name: block.name, input: parsed.data });
-        }
-      }
+    for (const tc of message?.tool_calls ?? []) {
+      const schema = ToolSchemas[tc.function.name as keyof typeof ToolSchemas];
+      if (!schema) continue;
+      try {
+        const parsed = schema.safeParse(JSON.parse(tc.function.arguments));
+        if (parsed.success) toolCalls.push({ name: tc.function.name, input: parsed.data });
+      } catch {}
     }
 
     return NextResponse.json({ text, toolCalls });
