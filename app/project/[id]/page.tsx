@@ -1,9 +1,9 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { use, useRef, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { VideoPlayer } from "@/components/video-player";
 import { Chat } from "@/components/chat";
 import { Timeline } from "@/components/timeline";
@@ -20,10 +20,42 @@ export default function ProjectPage({
   const projectId = id as Id<"projects">;
   const project = useQuery(api.projects.get, { projectId });
 
+  const transcript = useQuery(
+    api.transcripts.get,
+    project !== undefined ? { projectId } : "skip"
+  );
+  const saveTranscript = useMutation(api.transcripts.save);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(90);
   const [directorBusy, setDirectorBusy] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+
+  useEffect(() => {
+    if (!project?.videoUrl || transcript !== null || transcribing) return;
+    // transcript === undefined means query still loading
+    if (transcript === undefined) return;
+
+    setTranscribing(true);
+    fetch("/api/transcribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ audioUrl: project.videoUrl }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.utterances?.length > 0) {
+          return saveTranscript({
+            projectId,
+            language: "auto",
+            utterances: data.utterances,
+          });
+        }
+      })
+      .catch(console.error)
+      .finally(() => setTranscribing(false));
+  }, [project?.videoUrl, transcript, transcribing, projectId, saveTranscript]);
 
   if (project === undefined) {
     return (

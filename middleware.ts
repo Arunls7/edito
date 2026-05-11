@@ -1,13 +1,24 @@
-import { NextResponse } from "next/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse, type NextRequest, type NextFetchEvent } from "next/server";
 
-export default function middleware() {
-  // Local fallback: allow app boot without Clerk secrets.
-  return NextResponse.next();
+const isPublicRoute = createRouteMatcher(["/", "/sign-in(.*)", "/sign-up(.*)"]);
+
+function hasRealClerkKey() {
+  const k = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  return Boolean(k && (k.startsWith("pk_test_") || k.startsWith("pk_live_")) && !k.includes("xxx"));
+}
+
+const clerkHandler = clerkMiddleware(async (auth, req) => {
+  if (!isPublicRoute(req)) await auth.protect();
+});
+
+export default function middleware(req: NextRequest, evt: NextFetchEvent) {
+  if (!hasRealClerkKey()) return NextResponse.next();
+  return clerkHandler(req, evt);
 }
 
 export const config = {
   matcher: [
-    // Skip Next.js internals and all static files
     "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
     "/(api|trpc)(.*)",
   ],

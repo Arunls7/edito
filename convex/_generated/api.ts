@@ -10,9 +10,11 @@
 import type { ApiFromModules, FilterApi, FunctionReference } from "convex/server";
 import { anyApi } from "convex/server";
 import type * as projects from "../projects.js";
+import type * as transcripts from "../transcripts.js";
 
 const fullApi: ApiFromModules<{
   projects: typeof projects;
+  transcripts: typeof transcripts;
 }> = anyApi as any;
 
 /**
