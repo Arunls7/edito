@@ -5,6 +5,8 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { use, useEffect, useRef, useState } from "react";
 import { VideoPlayer, type VideoPlayerHandle } from "@/components/video-player";
+import type { Caption } from "@/components/remotion/composition";
+import type { CaptionStyle } from "@/components/remotion/caption-overlay";
 import { Chat } from "@/components/chat";
 import { Timeline } from "@/components/timeline";
 import { EditorTopBar } from "@/components/editor-top-bar";
@@ -26,11 +28,22 @@ export default function ProjectPage({
   );
   const saveTranscript = useMutation(api.transcripts.save);
 
+  const segments = useQuery(
+    api.projects.listSegments,
+    project !== undefined ? { projectId } : "skip"
+  );
+
   const videoRef = useRef<VideoPlayerHandle>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(90);
   const [directorBusy, setDirectorBusy] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  const [captionStyle] = useState<CaptionStyle>("minimal");
+
+  type Seg = { start: number; end: number; trackId?: string; text?: string };
+  const captions: Caption[] = (segments as Seg[] | undefined ?? [])
+    .filter((s) => s.trackId === "captions" && s.text)
+    .map((s) => ({ start: s.start, end: s.end, text: s.text! }));
 
   useEffect(() => {
     if (!project?.videoUrl || transcript !== null || transcribing) return;
@@ -99,6 +112,8 @@ export default function ProjectPage({
               <VideoPlayer
                 ref={videoRef}
                 videoUrl={project.videoUrl}
+                captions={captions}
+                captionStyle={captionStyle}
                 onTimeUpdate={setCurrentTime}
                 onDurationChange={(d: number) => {
                   if (Number.isFinite(d) && d > 0) setDuration(d);

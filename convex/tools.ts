@@ -163,12 +163,13 @@ export const addCaptions = action({
       return { ok: false, message: "Pas de transcript disponible." };
     }
 
-    const segments: { sourceStart: number; sourceEnd: number; timelineStart: number; order: number }[] =
+    const segments: { sourceStart: number; sourceEnd: number; timelineStart: number; order: number; text: string }[] =
       transcript.utterances.map((u: Utterance, i: number) => ({
         sourceStart: u.start,
         sourceEnd: u.end,
         timelineStart: u.start,
         order: i,
+        text: u.text,
       }));
 
     await ctx.runMutation(internal.segments.replaceTrack, {

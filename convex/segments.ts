@@ -6,6 +6,7 @@ const segmentFields = v.object({
   sourceEnd: v.number(),
   timelineStart: v.number(),
   order: v.number(),
+  text: v.optional(v.string()),
 });
 
 // Replace all segments on a given track for a project

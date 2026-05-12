@@ -25,6 +25,7 @@ export default defineSchema({
     sourceEnd: v.number(),
     timelineStart: v.number(), // position sur la timeline finale
     order: v.number(),
+    text: v.optional(v.string()), // caption text (trackId === "captions" only)
   }).index("by_project", ["projectId"]),
 
   // Transcript par projet : utterances avec timestamps

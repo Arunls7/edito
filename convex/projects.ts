@@ -98,6 +98,7 @@ export const listSegments = query({
         start: s.timelineStart,
         end: s.timelineStart + (s.sourceEnd - s.sourceStart),
         trackId: s.trackId,
+        text: s.text,
       }));
   },
 });
