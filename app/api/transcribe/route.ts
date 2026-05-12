@@ -40,10 +40,10 @@ async function transcribeWithWhisper(audioUrl: string): Promise<Utterance[]> {
     return r.blob();
   });
 
-  const result = await hf.automaticSpeechRecognition({
+  const result = await (hf.automaticSpeechRecognition as Function)({
     model: "openai/whisper-large-v3",
     data: blob,
-    parameters: { return_timestamps: true } as Record<string, unknown>,
+    parameters: { return_timestamps: true },
   });
 
   // HF returns chunks with [start, end] timestamps
