@@ -38,7 +38,7 @@ export default function ProjectPage({
   const [duration, setDuration] = useState(90);
   const [directorBusy, setDirectorBusy] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
-  const [captionStyle] = useState<CaptionStyle>("minimal");
+  const [captionStyle, setCaptionStyle] = useState<CaptionStyle>("minimal");
 
   type Seg = { start: number; end: number; trackId?: string; text?: string };
   const captions: Caption[] = (segments as Seg[] | undefined ?? [])
@@ -104,8 +104,11 @@ export default function ProjectPage({
           {/* Rail + Vidéo côte à côte */}
           <div className="flex min-h-0 min-w-0 flex-1">
             <EditorLeftRail
+              projectId={projectId}
               projectTitle={project.title}
               hasVideo={Boolean(project.videoUrl)}
+              captionStyle={captionStyle}
+              onCaptionStyleChange={setCaptionStyle}
             />
 
             <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center bg-gradient-to-b from-[#111113] via-[#0e0e10] to-[#0b0b0d] px-3 py-4 md:px-6">
