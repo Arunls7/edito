@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
   }
 
   const messages: Anthropic.MessageParam[] = [
-    ...body.history.map((h) => ({ role: h.role, content: h.content }) as Anthropic.MessageParam),
+    ...body.history.map((h: { role: string; content: string }) => ({ role: h.role, content: h.content }) as Anthropic.MessageParam),
     { role: "user", content: body.message },
   ];
 

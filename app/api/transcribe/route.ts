@@ -20,7 +20,7 @@ async function transcribeWithDeepgram(audioUrl: string): Promise<Utterance[]> {
     }
   );
   if (error) throw new Error(`Deepgram: ${error.message}`);
-  return (result?.results?.utterances ?? []).map((u) => ({
+  return (result?.results?.utterances ?? []).map((u: { start: number; end: number; transcript: string; confidence: number }) => ({
     start: u.start,
     end: u.end,
     text: u.transcript,
