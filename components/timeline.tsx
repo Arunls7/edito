@@ -106,7 +106,7 @@ export function Timeline({
                 )}
                 {segments &&
                   segments.length > 0 &&
-                  segments.map((s, i) => {
+                  segments.map((s: (typeof segments)[number], i: number) => {
                     const endRef =
                       segments[segments.length - 1]?.end || timelineDuration;
                     const denom = endRef > 0 ? endRef : timelineDuration;
