@@ -111,7 +111,7 @@ export default function ProjectPage({
           </div>
 
           {/* Timeline pleine largeur sous rail + vidéo */}
-          <div className="h-[200px] shrink-0 sm:h-[220px]">
+          <div className="h-[300px] shrink-0 sm:h-[320px]">
             <Timeline
               projectId={projectId}
               currentTime={currentTime}

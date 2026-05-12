@@ -80,12 +80,13 @@ export const VideoPlayer = forwardRef<HTMLVideoElement, Props>(
           "relative max-h-full max-w-full overflow-hidden rounded-2xl bg-black shadow-2xl ring-1 ring-white/[0.07]",
           fs && "flex max-h-none max-w-none flex-1 rounded-none ring-0",
         )}
+        style={fs ? undefined : { aspectRatio }}
       >
         <video
           ref={videoRef}
           src={videoUrl}
-          className="max-h-full w-full"
-          style={{ aspectRatio, display: "block" }}
+          className="h-full w-full"
+          style={{ display: "block" }}
           playsInline
           muted={muted}
           onPlay={() => setPlaying(true)}
