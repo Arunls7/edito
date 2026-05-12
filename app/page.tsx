@@ -19,7 +19,7 @@ export default function Home() {
         }}
       />
       {/* Top glow */}
-      <div className="pointer-events-none fixed inset-x-0 top-0 z-0 h-[500px] bg-gradient-to-b from-[#F2553C10] to-transparent" />
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-0 h-[500px] bg-gradient-to-b from-[#FF6B3510] to-transparent" />
 
       <div className="relative z-10">
         {/* Nav */}
@@ -65,7 +65,7 @@ export default function Home() {
         {/* Hero */}
         <section className="mx-auto max-w-5xl px-8 pt-28 pb-24 text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.1] bg-white/[0.04] px-3 py-1 text-xs text-white/50 mb-10">
-            <Sparkles className="h-3 w-3 text-[#F2553C]" />
+            <Sparkles className="h-3 w-3 text-[#FF6B35]" />
             Accès anticipé — gratuit pendant le beta
           </div>
 
@@ -84,7 +84,7 @@ export default function Home() {
             {hasClerkConfig ? (
               <SignedOut>
                 <SignInButton mode="modal">
-                  <button className="group inline-flex items-center gap-2 rounded-full bg-[#F2553C] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#e04430] transition">
+                  <button className="group inline-flex items-center gap-2 rounded-full bg-[#FF6B35] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#e04e1e] transition">
                     Essayer maintenant
                     <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition" />
                   </button>
@@ -92,13 +92,13 @@ export default function Home() {
               </SignedOut>
             ) : null}
             <SignedIn>
-              <Link href="/dashboard" className="group inline-flex items-center gap-2 rounded-full bg-[#F2553C] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#e04430] transition">
+              <Link href="/dashboard" className="group inline-flex items-center gap-2 rounded-full bg-[#FF6B35] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#e04e1e] transition">
                 Aller au dashboard
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition" />
               </Link>
             </SignedIn>
             {!hasClerkConfig && (
-              <Link href="/dashboard" className="group inline-flex items-center gap-2 rounded-full bg-[#F2553C] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#e04430] transition">
+              <Link href="/dashboard" className="group inline-flex items-center gap-2 rounded-full bg-[#FF6B35] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#e04e1e] transition">
                 Essayer maintenant
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition" />
               </Link>
@@ -130,7 +130,7 @@ export default function Home() {
               {/* Chat panel */}
               <div className="w-72 border-l border-white/[0.06] bg-[#121214] flex flex-col">
                 <div className="border-b border-white/[0.06] px-4 py-3 flex items-center gap-2">
-                  <Sparkles className="h-3.5 w-3.5 text-[#F2553C]" />
+                  <Sparkles className="h-3.5 w-3.5 text-[#FF6B35]" />
                   <span className="text-xs font-semibold">Director</span>
                   <span className="ml-auto text-[10px] text-[#5ee2a0] bg-[#5ee2a0]/10 border border-[#5ee2a0]/20 rounded-full px-2 py-0.5">Ready</span>
                 </div>
@@ -156,7 +156,7 @@ export default function Home() {
                 {[40, 15, 25, 10, 35, 20, 30, 18, 28].map((w, i) => (
                   <div
                     key={i}
-                    className="rounded-sm bg-[#F2553C]/60 h-full"
+                    className="rounded-sm bg-[#FF6B35]/60 h-full"
                     style={{ width: `${w}px` }}
                   />
                 ))}
@@ -171,7 +171,7 @@ export default function Home() {
         <section id="features" className="border-t border-white/[0.06]">
           <div className="mx-auto max-w-5xl px-8 py-24">
             <div className="text-center mb-16">
-              <div className="text-xs font-semibold uppercase tracking-widest text-[#F2553C] mb-4">Features</div>
+              <div className="text-xs font-semibold uppercase tracking-widest text-[#FF6B35] mb-4">Features</div>
               <h2 className="text-3xl md:text-4xl font-semibold tracking-tight">
                 Un agent IA, tous les outils
               </h2>
@@ -184,8 +184,8 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Big card */}
               <div className="md:col-span-2 rounded-xl border border-white/[0.08] bg-[#0f0f11] p-8 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#F2553C]/5 to-transparent" />
-                <Scissors className="h-6 w-6 text-[#F2553C] mb-4" />
+                <div className="absolute inset-0 bg-gradient-to-br from-[#FF6B35]/5 to-transparent" />
+                <Scissors className="h-6 w-6 text-[#FF6B35] mb-4" />
                 <h3 className="text-lg font-semibold mb-2">Suppression des silences</h3>
                 <p className="text-sm text-white/40 leading-relaxed">
                   Détection VAD automatique. Tous les temps morts supprimés, avec une marge configurable pour éviter les coupures brutales.
@@ -216,8 +216,8 @@ export default function Home() {
               </div>
 
               <div className="rounded-xl border border-white/[0.08] bg-[#0f0f11] p-8 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#F2553C]/5 to-transparent" />
-                <Zap className="h-6 w-6 text-[#F2553C] mb-4" />
+                <div className="absolute inset-0 bg-gradient-to-br from-[#FF6B35]/5 to-transparent" />
+                <Zap className="h-6 w-6 text-[#FF6B35] mb-4" />
                 <h3 className="text-lg font-semibold mb-2">Clips courts</h3>
                 <p className="text-sm text-white/40 leading-relaxed">
                   Génère N clips pour les réseaux depuis une longue vidéo.
@@ -241,7 +241,7 @@ export default function Home() {
           <div className="mx-auto max-w-5xl px-8 py-24">
             <div className="grid md:grid-cols-2 gap-16 items-center">
               <div>
-                <div className="text-xs font-semibold uppercase tracking-widest text-[#F2553C] mb-4">Workflow</div>
+                <div className="text-xs font-semibold uppercase tracking-widest text-[#FF6B35] mb-4">Workflow</div>
                 <h2 className="text-3xl md:text-4xl font-semibold tracking-tight leading-snug">
                   Parle à Director.<br />
                   <span className="text-white/30">Il comprend le montage.</span>
@@ -256,7 +256,7 @@ export default function Home() {
                     "\"Ajoute des captions en style bold\"",
                   ].map((q) => (
                     <div key={q} className="flex items-start gap-3">
-                      <div className="mt-1 h-1.5 w-1.5 rounded-full bg-[#F2553C] shrink-0" />
+                      <div className="mt-1 h-1.5 w-1.5 rounded-full bg-[#FF6B35] shrink-0" />
                       <p className="text-sm text-white/50 font-mono">{q}</p>
                     </div>
                   ))}
@@ -265,7 +265,7 @@ export default function Home() {
               <div className="rounded-xl border border-white/[0.08] bg-[#0f0f11] p-1 shadow-2xl shadow-black/40">
                 <div className="rounded-lg bg-[#121214] overflow-hidden">
                   <div className="border-b border-white/[0.06] px-4 py-3 flex items-center gap-2">
-                    <Sparkles className="h-3.5 w-3.5 text-[#F2553C]" />
+                    <Sparkles className="h-3.5 w-3.5 text-[#FF6B35]" />
                     <span className="text-xs font-semibold">Director</span>
                   </div>
                   <div className="p-4 space-y-4">
@@ -305,20 +305,20 @@ export default function Home() {
               {hasClerkConfig ? (
                 <SignedOut>
                   <SignInButton mode="modal">
-                    <button className="group inline-flex items-center gap-2 rounded-full bg-[#F2553C] px-8 py-3 font-semibold text-white hover:bg-[#e04430] transition">
+                    <button className="group inline-flex items-center gap-2 rounded-full bg-[#FF6B35] px-8 py-3 font-semibold text-white hover:bg-[#e04e1e] transition">
                       Commencer gratuitement
                       <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition" />
                     </button>
                   </SignInButton>
                 </SignedOut>
               ) : (
-                <Link href="/dashboard" className="group inline-flex items-center gap-2 rounded-full bg-[#F2553C] px-8 py-3 font-semibold text-white hover:bg-[#e04430] transition">
+                <Link href="/dashboard" className="group inline-flex items-center gap-2 rounded-full bg-[#FF6B35] px-8 py-3 font-semibold text-white hover:bg-[#e04e1e] transition">
                   Commencer gratuitement
                   <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition" />
                 </Link>
               )}
               <SignedIn>
-                <Link href="/dashboard" className="group inline-flex items-center gap-2 rounded-full bg-[#F2553C] px-8 py-3 font-semibold text-white hover:bg-[#e04430] transition">
+                <Link href="/dashboard" className="group inline-flex items-center gap-2 rounded-full bg-[#FF6B35] px-8 py-3 font-semibold text-white hover:bg-[#e04e1e] transition">
                   Aller au dashboard
                   <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition" />
                 </Link>
@@ -330,7 +330,7 @@ export default function Home() {
         {/* Footer */}
         <footer className="border-t border-white/[0.06] px-8 py-8 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="h-5 w-5 rounded bg-gradient-to-br from-[#F2553C] to-[#c44e2a]" />
+            <div className="h-5 w-5 rounded bg-gradient-to-br from-[#FF6B35] to-[#c44e2a]" />
             <span className="text-sm font-semibold">Rushly</span>
           </div>
           <p className="text-xs text-white/25">© 2026 Rushly. Le montage, à la vitesse de la pensée.</p>

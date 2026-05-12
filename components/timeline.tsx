@@ -406,17 +406,17 @@ function TrackHeader({
 
   return (
     <div
-      className="flex shrink-0 items-center gap-1 border-b border-r border-white/[0.07] bg-[#252529] px-2"
-      style={{ height: track.height }}
+      className="flex shrink-0 items-center gap-1 border-b border-r px-2"
+      style={{ borderColor: "rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.018)", height: track.height }}
     >
-      <span className="w-8 font-mono text-[11px] font-semibold text-white/70">
+      <span className="w-8 font-mono text-[10px] tracking-[0.08em] text-[#4A4A4A]">
         {track.label}
       </span>
 
       <div className="flex flex-1 items-center justify-end gap-1">
         {isVideo ? (
           <button
-            className="rounded p-0.5 text-white/40 transition-colors hover:text-white/80"
+            className="rounded p-0.5 text-[#4A4A4A] transition-colors hover:text-[#7A7A7A]"
             onClick={() => onChange({ visible: !state.visible })}
             title={state.visible ? "Hide" : "Show"}
           >
@@ -424,7 +424,7 @@ function TrackHeader({
           </button>
         ) : (
           <button
-            className="rounded p-0.5 text-white/40 transition-colors hover:text-white/80"
+            className="rounded p-0.5 text-[#4A4A4A] transition-colors hover:text-[#7A7A7A]"
             onClick={() => onChange({ muted: !state.muted })}
             title={state.muted ? "Unmute" : "Mute"}
           >
@@ -448,8 +448,8 @@ function TrackHeader({
 
 function SectionLabel({ label }: { label: string }) {
   return (
-    <div className="flex h-5 shrink-0 items-center border-b border-r border-white/[0.07] bg-[#1c1c20] px-3">
-      <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-white/25">
+    <div className="flex h-5 shrink-0 items-center border-b border-r px-3" style={{ borderColor: "rgba(255,255,255,0.04)", background: "rgba(0,0,0,0.4)" }}>
+      <span className="font-mono text-[8px] uppercase tracking-[0.18em] text-[#4A4A4A]">
         {label}
       </span>
     </div>
@@ -470,11 +470,11 @@ function Playhead({ pct }: { pct: number }) {
           style={{
             borderLeft: "5px solid transparent",
             borderRight: "5px solid transparent",
-            borderTop: "7px solid #f5a623",
+            borderTop: "7px solid #FF6B35",
           }}
         />
       </div>
-      <div className="absolute bottom-0 left-1/2 top-0 w-px -translate-x-1/2 bg-[#f5a623]/80 shadow-[0_0_6px_rgba(245,166,35,0.5)]" />
+      <div className="absolute bottom-0 left-1/2 top-0 w-px -translate-x-1/2" style={{ background: "rgba(255,107,53,0.85)", boxShadow: "0 0 8px rgba(255,107,53,0.45)" }} />
     </div>
   );
 }
@@ -484,10 +484,10 @@ function Playhead({ pct }: { pct: number }) {
 function TrackRow({ track, children }: { track: TrackDef; children?: ReactNode }) {
   return (
     <div
-      className="relative border-b border-white/[0.06] bg-[#1e1e22]"
-      style={{ height: track.height }}
+      className="relative border-b"
+      style={{ height: track.height, borderColor: "rgba(255,255,255,0.04)", background: "#0D0D0D" }}
     >
-      <div className="absolute inset-0 bg-gradient-to-b from-white/[0.015] to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-b from-white/[0.01] to-transparent" />
       {children}
     </div>
   );
@@ -555,14 +555,14 @@ export function Timeline({
   const audioTracks = TRACKS.filter((t) => t.kind === "audio");
 
   return (
-    <div className="flex h-full flex-col overflow-hidden border-t border-white/[0.07] bg-[#1a1a1e] select-none">
+    <div className="flex h-full flex-col overflow-hidden border-t bg-[#0A0A0A] select-none" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
       {/* Toolbar strip */}
-      <div className="flex h-7 shrink-0 items-center gap-3 border-b border-white/[0.07] bg-[#222226] px-3">
-        <span className="font-mono text-[11px] tabular-nums text-[#f5a623]">
+      <div className="flex h-7 shrink-0 items-center gap-3 border-b px-3" style={{ borderColor: "rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.015)" }}>
+        <span className="font-mono text-[11px] tabular-nums" style={{ color: "#FF6B35" }}>
           {toTimecode(currentTime)}
         </span>
-        <div className="h-3 w-px bg-white/10" />
-        <span className="font-mono text-[10px] tabular-nums text-white/25">
+        <div className="h-3 w-px" style={{ background: "rgba(255,255,255,0.08)" }} />
+        <span className="font-mono text-[10px] tabular-nums text-[#4A4A4A]">
           {Number.isFinite(duration) && duration > 0 ? toTimecode(duration) : "--:--:--:--"}
         </span>
       </div>
@@ -572,8 +572,8 @@ export function Timeline({
         {/* Left headers column */}
         <div className="flex shrink-0 flex-col overflow-hidden" style={{ width: HEADER_W }}>
           <div
-            className="shrink-0 border-b border-r border-white/[0.07] bg-[#1e1e22]"
-            style={{ height: RULER_H }}
+            className="shrink-0 border-b border-r"
+            style={{ borderColor: "rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.015)", height: RULER_H }}
           />
           <SectionLabel label="Video" />
           {videoTracks.map((t) => (
@@ -590,8 +590,8 @@ export function Timeline({
           <div ref={trackContentRef} className="relative min-w-[560px]">
             {/* Ruler */}
             <div
-              className="sticky top-0 z-20 border-b border-white/[0.07] bg-[#222226]"
-              style={{ height: RULER_H }}
+              className="sticky top-0 z-20 border-b"
+              style={{ borderColor: "rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.015)", height: RULER_H }}
             >
               <Ruler duration={timelineDuration} onClick={onSeek} />
             </div>
@@ -599,7 +599,7 @@ export function Timeline({
             {/* Track rows */}
             <div className="relative" onClick={onTrackClick} role="presentation">
               {/* Video section spacer */}
-              <div className="h-5 border-b border-white/[0.07] bg-[#1c1c20]" />
+              <div className="h-5 border-b" style={{ borderColor: "rgba(255,255,255,0.04)", background: "rgba(0,0,0,0.4)" }} />
 
               {/* V2 – B-roll */}
               <TrackRow track={videoTracks[0]} />
@@ -647,7 +647,7 @@ export function Timeline({
               </TrackRow>
 
               {/* Audio section spacer */}
-              <div className="h-5 border-b border-white/[0.07] bg-[#1c1c20]" />
+              <div className="h-5 border-b" style={{ borderColor: "rgba(255,255,255,0.04)", background: "rgba(0,0,0,0.4)" }} />
 
               {/* A1 – Main audio */}
               <TrackRow track={audioTracks[0]}>

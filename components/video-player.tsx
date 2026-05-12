@@ -318,8 +318,8 @@ function VideoChrome({
         aria-label="Seek timeline"
       >
         <div
-          className="absolute inset-y-0 left-0 rounded-full bg-white/85 transition-[width]"
-          style={{ width: `${pct}%` }}
+          className="absolute inset-y-0 left-0 rounded-full transition-[width]"
+          style={{ width: `${pct}%`, background: "#FF6B35" }}
         />
       </button>
 
@@ -339,7 +339,8 @@ function VideoChrome({
           <button
             type="button"
             onClick={onTogglePlay}
-            className="mx-1 flex h-10 w-10 items-center justify-center rounded-full bg-white text-black shadow-lg shadow-black/50 transition hover:bg-white/95"
+            className="mx-1 flex h-10 w-10 items-center justify-center rounded-full text-white shadow-lg transition hover:opacity-90"
+          style={{ background: "linear-gradient(135deg, #FF6B35 0%, #e04e1e 100%)", boxShadow: "0 4px 20px rgba(255,107,53,0.35)" }}
             aria-label={playing ? "Pause" : "Play"}
           >
             {playing ? (

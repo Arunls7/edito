@@ -12,53 +12,83 @@ export default function DashboardPage() {
   const projects = useQuery(api.projects.list);
 
   return (
-    <main className="relative z-10 min-h-screen">
-      <nav className="flex items-center justify-between border-b border-[var(--color-border)] px-8 py-4">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="h-6 w-6 rounded bg-gradient-to-br from-[var(--color-accent)] to-[#c44e2a]" />
-          <span className="font-medium">Rushly</span>
+    <main className="relative z-10 min-h-screen bg-[#0A0A0A]">
+      {/* Top nav */}
+      <nav
+        className="flex items-center justify-between border-b px-8 py-4"
+        style={{ borderColor: "rgba(255,255,255,0.06)", background: "rgba(10,10,10,0.8)", backdropFilter: "blur(20px)" }}
+      >
+        <Link href="/" className="flex items-center gap-2.5">
+          <span
+            className="flex h-6 w-6 items-center justify-center rounded-md text-[10px] font-black text-white"
+            style={{ background: "linear-gradient(135deg, #FF6B35 0%, #e04e1e 100%)" }}
+          >
+            R
+          </span>
+          <span className="font-mono text-[12px] tracking-[0.1em] text-[#7A7A7A]">RUSHLY</span>
         </Link>
         {hasClerkPublishableConfig() ? <UserButton /> : null}
       </nav>
 
       <div className="mx-auto max-w-5xl px-8 py-12">
-        <h1 className="text-3xl font-serif mb-2">Tes projets</h1>
-        <p className="text-[var(--color-text-muted)] mb-8">
-          Décris ton projet et l&apos;agent prend la suite.
-        </p>
+        {/* Page heading */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-semibold tracking-tight text-[#F5F5F5]">
+            Projets
+          </h1>
+          <p className="mt-1 font-mono text-[11px] tracking-[0.06em] text-[#4A4A4A]">
+            Décris ton projet et l'agent prend la suite.
+          </p>
+        </div>
 
         <DashboardChat />
 
+        {/* Recent projects */}
         <div className="mt-12">
-          <h2 className="text-sm uppercase tracking-wider text-[var(--color-text-dim)] mb-4">
-            Récents
-          </h2>
+          <p className="mb-4 font-mono text-[9px] tracking-[0.18em] text-[#4A4A4A]">RÉCENTS</p>
 
           {projects === undefined && (
-            <div className="text-sm text-[var(--color-text-muted)]">Chargement…</div>
+            <p className="font-mono text-[11px] text-[#4A4A4A]">Chargement…</p>
           )}
 
           {projects && projects.length === 0 && (
-            <div className="rounded-lg border border-dashed border-[var(--color-border)] p-12 text-center text-[var(--color-text-muted)]">
-              Aucun projet pour l&apos;instant. Décris ton premier projet ci-dessus.
+            <div
+              className="rounded-xl border border-dashed p-12 text-center"
+              style={{ borderColor: "rgba(255,255,255,0.07)" }}
+            >
+              <p className="font-mono text-[11px] tracking-[0.06em] text-[#4A4A4A]">
+                Nothing yet.
+              </p>
+              <p className="mt-1 font-mono text-[10px] text-[#4A4A4A]/60">
+                Ship something already.
+              </p>
             </div>
           )}
 
           {projects && projects.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
               {projects.map((p: (typeof projects)[number]) => (
                 <Link
                   key={p._id}
                   href={`/project/${p._id}`}
-                  className="group rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4 hover:border-[var(--color-border-light)] transition"
+                  className="group rounded-xl border p-4 transition-all"
+                  style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)" }}
                 >
-                  <div className="aspect-video rounded bg-[var(--color-bg-panel)] mb-3 flex items-center justify-center">
-                    <Film className="h-8 w-8 text-[var(--color-text-dim)]" />
+                  {/* Thumbnail placeholder */}
+                  <div
+                    className="mb-3 flex aspect-video items-center justify-center rounded-lg border"
+                    style={{ borderColor: "rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.015)" }}
+                  >
+                    <Film className="h-7 w-7 text-[#4A4A4A] transition group-hover:text-[#FF6B35]" strokeWidth={1.5} />
                   </div>
-                  <div className="font-medium truncate">{p.title}</div>
-                  <div className="flex items-center gap-1.5 mt-1 text-xs text-[var(--color-text-muted)]">
-                    <Clock className="h-3 w-3" />
-                    {new Date(p._creationTime).toLocaleDateString("fr-FR")}
+
+                  <div className="font-medium truncate text-[13px] text-[#F5F5F5]">{p.title}</div>
+
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <Clock className="h-3 w-3 text-[#4A4A4A]" />
+                    <span className="font-mono text-[9px] tracking-[0.06em] text-[#4A4A4A]">
+                      {new Date(p._creationTime).toLocaleDateString("fr-FR")}
+                    </span>
                   </div>
                 </Link>
               ))}
