@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { ArrowUp, Sparkles, Wrench, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { ArrowUp, Sparkles, Wrench, Loader2, CheckCircle, XCircle, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type ToolStatus = "running" | "done" | "error";
@@ -29,6 +29,7 @@ export function Chat({ projectId, onBusyChange }: Props) {
   ]);
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   const removeSilences = useAction(api.tools.removeSilences);
   const addCaptions = useAction(api.tools.addCaptions);
@@ -70,6 +71,10 @@ export function Chat({ projectId, onBusyChange }: Props) {
     }
   }
 
+  function stop() {
+    abortRef.current?.abort();
+  }
+
   async function send() {
     if (!input.trim() || pending) return;
     const userMsg: Message = { role: "user", content: input };
@@ -78,9 +83,14 @@ export function Chat({ projectId, onBusyChange }: Props) {
     setInput("");
     setPending(true);
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const timeoutId = window.setTimeout(() => controller.abort(), 45_000);
+
     try {
       const res = await fetch("/api/agent", {
         method: "POST",
+        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           projectId,
@@ -125,12 +135,19 @@ export function Chat({ projectId, onBusyChange }: Props) {
         }
       }
     } catch (e) {
-      console.error(e);
+      const isAbort = e instanceof Error && e.name === "AbortError";
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: "Something went wrong — try again." },
+        {
+          role: "assistant",
+          content: isAbort
+            ? "Annulé."
+            : `Erreur : ${e instanceof Error ? e.message : String(e)}`,
+        },
       ]);
     } finally {
+      window.clearTimeout(timeoutId);
+      abortRef.current = null;
       setPending(false);
     }
   }
@@ -143,16 +160,21 @@ export function Chat({ projectId, onBusyChange }: Props) {
           <span className="text-sm font-semibold tracking-tight text-white/95">
             Director
           </span>
-          <span
-            className={cn(
-              "ml-auto rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-              pending
-                ? "border-amber-500/35 bg-amber-500/10 text-amber-100/90"
-                : "border-emerald-500/35 bg-emerald-500/10 text-emerald-100/90",
-            )}
-          >
-            {pending ? "Thinking" : "Ready"}
-          </span>
+          {pending ? (
+            <button
+              type="button"
+              onClick={stop}
+              className="ml-auto flex items-center gap-1 rounded-full border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100/90 transition hover:bg-amber-500/20"
+              title="Annuler"
+            >
+              <Square className="h-2.5 w-2.5 fill-current" />
+              Stop
+            </button>
+          ) : (
+            <span className="ml-auto rounded-full border border-emerald-500/35 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-100/90">
+              Ready
+            </span>
+          )}
         </div>
         <p className="mt-2 text-[11px] leading-snug text-white/45">
           {pending

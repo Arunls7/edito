@@ -4,6 +4,7 @@ import {
   forwardRef,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
@@ -22,10 +23,14 @@ import {
   Minimize,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { VideoComposition, type Caption, type CompositionProps } from "./remotion/composition";
+import {
+  VideoComposition,
+  type Caption,
+  type CompositionProps,
+} from "./remotion/composition";
 import type { CaptionStyle } from "./remotion/caption-overlay";
 
-// ─── Public handle (replaces HTMLVideoElement ref) ────────────────────────────
+// ─── Public handle ────────────────────────────────────────────────────────────
 
 export type VideoPlayerHandle = {
   seekTo: (seconds: number) => void;
@@ -54,29 +59,40 @@ function fmt(t: number) {
 
 export const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
   function VideoPlayer(
-    {
-      videoUrl,
-      captions = [],
-      captionStyle = "minimal",
-      onTimeUpdate,
-      onDurationChange,
-    },
+    { videoUrl, captions = [], captionStyle = "minimal", onTimeUpdate, onDurationChange },
     ref
   ) {
     const playerRef = useRef<PlayerRef>(null);
+    const wrapperRef = useRef<HTMLDivElement>(null);
 
+    // Native video dimensions + duration (detected via hidden <video>)
     const [dims, setDims] = useState<{
       width: number;
       height: number;
       duration: number;
     } | null>(null);
 
+    // Available pixel space from the wrapper (ResizeObserver)
+    const [avail, setAvail] = useState<{ w: number; h: number } | null>(null);
+
     const [currentTime, setCurrentTime] = useState(0);
     const [playing, setPlaying] = useState(false);
     const [muted, setMuted] = useState(false);
     const [fs, setFs] = useState(false);
 
-    // Detect video dimensions + duration before mounting Remotion
+    // ── Observe wrapper size ─────────────────────────────────────────────────
+    useEffect(() => {
+      const el = wrapperRef.current;
+      if (!el) return;
+      const ro = new ResizeObserver(([entry]) => {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) setAvail({ w: width, h: height });
+      });
+      ro.observe(el);
+      return () => ro.disconnect();
+    }, []);
+
+    // ── Detect video dimensions ──────────────────────────────────────────────
     useEffect(() => {
       if (!videoUrl) return;
       setDims(null);
@@ -95,14 +111,30 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
       return () => { v.src = ""; };
     }, [videoUrl, onDurationChange]);
 
-    // Expose seekTo via ref
+    // ── Compute exact display size (object-fit: contain logic) ───────────────
+    const display = useMemo(() => {
+      if (!avail || !dims || avail.w === 0 || avail.h === 0) return null;
+      const videoRatio = dims.width / dims.height;
+      const containerRatio = avail.w / avail.h;
+      if (videoRatio < containerRatio) {
+        // Taller than container → height-constrained (portrait)
+        const h = avail.h;
+        return { w: Math.round(h * videoRatio), h };
+      } else {
+        // Wider than container → width-constrained (landscape)
+        const w = avail.w;
+        return { w, h: Math.round(w / videoRatio) };
+      }
+    }, [avail, dims]);
+
+    // ── Expose seekTo ────────────────────────────────────────────────────────
     useImperativeHandle(ref, () => ({
       seekTo: (seconds: number) => {
         playerRef.current?.seekTo(Math.round(seconds * FPS));
       },
     }), []);
 
-    // Poll current time from Remotion
+    // ── Poll current time ────────────────────────────────────────────────────
     useEffect(() => {
       if (!dims) return;
       const id = window.setInterval(() => {
@@ -116,9 +148,9 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
       return () => window.clearInterval(id);
     }, [dims, onTimeUpdate]);
 
-    // Play / pause / ended events
+    // ── Play/pause/ended events ──────────────────────────────────────────────
     useEffect(() => {
-      if (!dims) return;
+      if (!display) return;
       const p = playerRef.current;
       if (!p) return;
       const onPlay = () => setPlaying(true);
@@ -132,91 +164,93 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
         p.removeEventListener("pause", onPause);
         p.removeEventListener("ended", onEnded);
       };
-    }, [dims]);
+    }, [display]);
 
-    // ── Placeholder: no video ────────────────────────────────────────────────
-    if (!videoUrl) {
-      return (
-        <div className="flex aspect-video w-full max-w-5xl items-center justify-center rounded-2xl border border-white/[0.08] bg-[#1a1a1e] text-sm text-white/45 shadow-2xl">
-          Vidéo en cours de traitement…
-        </div>
-      );
-    }
+    // ── Render ───────────────────────────────────────────────────────────────
 
-    // ── Loading dimensions ───────────────────────────────────────────────────
-    if (!dims) {
-      return (
-        <div className="flex aspect-video w-full max-w-5xl items-center justify-center rounded-2xl bg-black text-sm text-white/30">
-          Chargement…
-        </div>
-      );
-    }
-
-    const durationInFrames = Math.max(1, Math.round(dims.duration * FPS));
-    const inputProps: CompositionProps = { videoUrl, captions, captionStyle };
-
+    // Outer wrapper always present so ResizeObserver fires immediately
     return (
       <div
-        className={cn(
-          "relative max-h-full max-w-full overflow-hidden rounded-2xl bg-black shadow-2xl ring-1 ring-white/[0.07]",
-          fs && "max-h-none max-w-none flex-1 rounded-none ring-0"
-        )}
-        style={fs ? undefined : { aspectRatio: `${dims.width} / ${dims.height}` }}
+        ref={wrapperRef}
+        className="flex h-full w-full items-center justify-center"
       >
-        <Player
-          ref={playerRef}
-          component={VideoComposition}
-          durationInFrames={durationInFrames}
-          fps={FPS}
-          compositionWidth={dims.width}
-          compositionHeight={dims.height}
-          inputProps={inputProps}
-          controls={false}
-          clickToPlay
-          doubleClickToFullscreen={false}
-          acknowledgeRemotionLicense
-          style={{ width: "100%", height: "100%", display: "block" }}
-        />
-
-        {/* Custom controls overlay */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent pt-16 pb-1">
-          <div className="pointer-events-auto space-y-2 px-3 pb-3 md:px-4">
-            <VideoChrome
-              currentTime={currentTime}
-              duration={dims.duration}
-              playing={playing}
-              muted={muted}
-              fullscreen={fs}
-              onTogglePlay={() => {
-                if (playing) playerRef.current?.pause();
-                else playerRef.current?.play();
-              }}
-              onSeek={(delta) => {
-                const next = Math.min(
-                  Math.max(0, currentTime + delta),
-                  dims.duration
-                );
-                playerRef.current?.seekTo(Math.round(next * FPS));
-              }}
-              onSeekAbsolute={(pct) => {
-                playerRef.current?.seekTo(Math.round(pct * durationInFrames));
-              }}
-              onGoStart={() => playerRef.current?.seekTo(0)}
-              onGoEnd={() => playerRef.current?.seekTo(durationInFrames - 1)}
-              onMuteToggle={() => setMuted((m) => !m)}
-              onToggleFs={() => {
-                if (!fs) {
-                  playerRef.current?.requestFullscreen();
-                  setFs(true);
-                } else {
-                  document.exitFullscreen?.();
-                  setFs(false);
-                }
-              }}
-              fmt={fmt}
-            />
+        {!videoUrl && (
+          <div className="flex aspect-video w-full max-w-2xl items-center justify-center rounded-2xl border border-white/[0.08] bg-[#1a1a1e] text-sm text-white/45">
+            Vidéo en cours de traitement…
           </div>
-        </div>
+        )}
+
+        {videoUrl && (!dims || !display) && (
+          <div className="flex aspect-video w-full max-w-2xl items-center justify-center rounded-2xl bg-black text-sm text-white/30">
+            Chargement…
+          </div>
+        )}
+
+        {videoUrl && dims && display && (() => {
+          const durationInFrames = Math.max(1, Math.round(dims.duration * FPS));
+          const inputProps: CompositionProps = { videoUrl, captions, captionStyle };
+
+          return (
+            <div
+              style={{ width: display.w, height: display.h }}
+              className={cn(
+                "relative overflow-hidden rounded-2xl bg-black shadow-2xl ring-1 ring-white/[0.07]",
+                fs && "!h-full !w-full rounded-none ring-0"
+              )}
+            >
+              <Player
+                ref={playerRef}
+                component={VideoComposition}
+                durationInFrames={durationInFrames}
+                fps={FPS}
+                compositionWidth={dims.width}
+                compositionHeight={dims.height}
+                inputProps={inputProps}
+                controls={false}
+                clickToPlay
+                doubleClickToFullscreen={false}
+                acknowledgeRemotionLicense
+                style={{ width: "100%", height: "100%", display: "block" }}
+              />
+
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent pt-16 pb-1">
+                <div className="pointer-events-auto space-y-2 px-3 pb-3 md:px-4">
+                  <VideoChrome
+                    currentTime={currentTime}
+                    duration={dims.duration}
+                    playing={playing}
+                    muted={muted}
+                    fullscreen={fs}
+                    onTogglePlay={() => {
+                      if (playing) playerRef.current?.pause();
+                      else playerRef.current?.play();
+                    }}
+                    onSeek={(delta) => {
+                      const next = Math.min(Math.max(0, currentTime + delta), dims.duration);
+                      playerRef.current?.seekTo(Math.round(next * FPS));
+                    }}
+                    onSeekAbsolute={(pct) => {
+                      playerRef.current?.seekTo(Math.round(pct * durationInFrames));
+                    }}
+                    onGoStart={() => playerRef.current?.seekTo(0)}
+                    onGoEnd={() => playerRef.current?.seekTo(durationInFrames - 1)}
+                    onMuteToggle={() => setMuted((m) => !m)}
+                    onToggleFs={() => {
+                      if (!fs) {
+                        playerRef.current?.requestFullscreen();
+                        setFs(true);
+                      } else {
+                        void document.exitFullscreen?.();
+                        setFs(false);
+                      }
+                    }}
+                    fmt={fmt}
+                  />
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     );
   }

@@ -5,7 +5,7 @@ import { hasClerkPublishableConfig } from "@/lib/clerk-config";
 import "@/styles/globals.css";
 
 export const metadata: Metadata = {
-  title: "Rushly — Agentic Video Rushlyr",
+  title: "Rushly — Agentic Video Editor",
   description: "Décris l'édit, l'agent exécute. Captions, silences, montage — automatique.",
 };
 

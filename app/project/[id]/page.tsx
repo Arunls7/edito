@@ -82,6 +82,7 @@ export default function ProjectPage({
       <EditorTopBar
         projectTitle={project.title}
         directorStatus={directorBusy ? "busy" : "ready"}
+        hasVideo={Boolean(project.videoUrl)}
       />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">

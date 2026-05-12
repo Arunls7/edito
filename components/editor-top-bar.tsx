@@ -9,9 +9,10 @@ import { cn } from "@/lib/utils";
 type Props = {
   projectTitle: string;
   directorStatus: "ready" | "busy";
+  hasVideo?: boolean;
 };
 
-export function EditorTopBar({ projectTitle, directorStatus }: Props) {
+export function EditorTopBar({ projectTitle, directorStatus, hasVideo = false }: Props) {
   return (
     <header
       className={cn(
@@ -53,8 +54,10 @@ export function EditorTopBar({ projectTitle, directorStatus }: Props) {
 
         <button
           type="button"
-          disabled
-          className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-white/90 opacity-60 transition hover:bg-white/[0.08]"
+          disabled={!hasVideo}
+          title={hasVideo ? "Export via Remotion — bientôt disponible" : "Importe une vidéo d'abord"}
+          onClick={() => hasVideo && alert("Export Remotion Lambda — disponible dans la prochaine version.")}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-white/90 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Download className="h-3.5 w-3.5 opacity-80" />
           Export
