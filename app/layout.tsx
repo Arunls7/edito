@@ -5,8 +5,8 @@ import { hasClerkPublishableConfig } from "@/lib/clerk-config";
 import "@/styles/globals.css";
 
 export const metadata: Metadata = {
-  title: "Edito — Agentic Video Editor",
-  description: "Décris ton édit, l'agent l'exécute. Captions, silences, montage — automatique.",
+  title: "Rushly — Agentic Video Rushlyr",
+  description: "Décris l'édit, l'agent exécute. Captions, silences, montage — automatique.",
 };
 
 export default function RootLayout({

@@ -93,7 +93,7 @@ const TOOLS: Groq.Chat.ChatCompletionTool[] = [
   },
 ];
 
-const SYSTEM_PROMPT = `Tu es Director, l'assistant de montage vidéo d'Edito.
+const SYSTEM_PROMPT = `Tu es Director, l'assistant de montage vidéo d'Rushly.
 
 Tu reçois des demandes en langage naturel et tu les traduis en séquences de tool calls qui modifient la timeline.
 
