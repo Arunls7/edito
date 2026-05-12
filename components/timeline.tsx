@@ -8,6 +8,7 @@ type Props = {
   projectId: Id<"projects">;
   currentTime: number;
   duration: number;
+  hasVideo?: boolean;
   onSeek: (seconds: number) => void;
 };
 
@@ -21,6 +22,7 @@ export function Timeline({
   projectId,
   currentTime,
   duration,
+  hasVideo = false,
   onSeek,
 }: Props) {
   const segments = useQuery(api.projects.listSegments, { projectId });
@@ -99,9 +101,14 @@ export function Timeline({
                     Loading…
                   </div>
                 )}
-                {segments && segments.length === 0 && (
+                {segments && segments.length === 0 && !hasVideo && (
                   <div className="flex h-full items-center justify-center text-[11px] text-white/35">
                     No cuts yet — ask Director.
+                  </div>
+                )}
+                {segments && segments.length === 0 && hasVideo && (
+                  <div className="absolute inset-x-2 top-2 bottom-2 rounded-md bg-gradient-to-b from-white/20 to-white/[0.06] ring-1 ring-white/15 flex items-center px-3">
+                    <span className="text-[11px] text-white/50 truncate">Rush brut</span>
                   </div>
                 )}
                 {segments &&

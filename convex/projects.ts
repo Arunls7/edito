@@ -1,12 +1,14 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
+function getUserId(identity: { subject: string } | null): string {
+  return identity?.subject ?? "anonymous";
+}
+
 // Génère une URL d'upload signée pour Convex storage
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -21,10 +23,10 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
+    const userId = getUserId(identity);
 
     return await ctx.db.insert("projects", {
-      userId: identity.subject,
+      userId,
       title: args.title,
       storageId: args.storageId,
       sizeBytes: args.sizeBytes,
@@ -41,10 +43,10 @@ export const createEmpty = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
+    const userId = getUserId(identity);
 
     return await ctx.db.insert("projects", {
-      userId: identity.subject,
+      userId,
       title: args.title,
       status: "uploaded",
     });
@@ -56,11 +58,11 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return [];
+    const userId = getUserId(identity);
 
     return await ctx.db
       .query("projects")
-      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
       .take(50);
   },
@@ -70,21 +72,14 @@ export const list = query({
 export const get = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
-
     const project = await ctx.db.get(args.projectId);
     if (!project) return null;
-    if (project.userId !== identity.subject) return null;
 
     const videoUrl = project.storageId
       ? await ctx.storage.getUrl(project.storageId)
       : null;
 
-    return {
-      ...project,
-      videoUrl,
-    };
+    return { ...project, videoUrl };
   },
 });
 
@@ -92,18 +87,11 @@ export const get = query({
 export const listSegments = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return [];
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project || project.userId !== identity.subject) return [];
-
     const segments = await ctx.db
       .query("segments")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
 
-    // Format pour la timeline UI : { start, end } sur timeline finale
     return segments
       .sort((a, b) => a.order - b.order)
       .map((s) => ({
@@ -126,16 +114,9 @@ export const applyToolCalls = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
-
     const project = await ctx.db.get(args.projectId);
-    if (!project || project.userId !== identity.subject) {
-      throw new Error("Project not found");
-    }
+    if (!project) throw new Error("Project not found");
 
-    // Stub : chaque tool call sera implémenté progressivement.
-    // Pour le MVP on log juste les calls dans la table messages.
     for (const tc of args.toolCalls) {
       await ctx.db.insert("messages", {
         projectId: args.projectId,
