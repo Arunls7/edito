@@ -4,6 +4,10 @@ import { action } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
 
+type Utterance = { start: number; end: number; text: string; confidence: number };
+type TranscriptResult = { utterances: Utterance[] } | null;
+type ProjectResult = { videoUrl?: string | null; title: string } | null;
+
 // ─── remove_silences ──────────────────────────────────────────────────────────
 // Primary: NeuralFalcon/Remove-Silence-From-Audio (HF Space via Gradio client).
 // Returns an audio file with silence removed + segment timestamps.
@@ -81,8 +85,8 @@ export const removeSilences = action({
     min_silence_len_ms: v.optional(v.number()),
     silence_thresh_db: v.optional(v.number()),
   },
-  handler: async (ctx, args) => {
-    const project = await ctx.runQuery(api.projects.get, { projectId: args.projectId });
+  handler: async (ctx, args): Promise<{ ok: boolean; message: string; method?: string; segmentCount?: number }> => {
+    const project: ProjectResult = await ctx.runQuery(api.projects.get, { projectId: args.projectId });
     if (!project?.videoUrl) {
       return { ok: false, message: "Pas de vidéo associée au projet." };
     }
@@ -109,7 +113,7 @@ export const removeSilences = action({
     } catch (err) {
       // Fallback: use stored transcript utterances
       method = "transcript-fallback";
-      const transcript = await ctx.runQuery(api.transcripts.get, { projectId: args.projectId });
+      const transcript: TranscriptResult = await ctx.runQuery(api.transcripts.get, { projectId: args.projectId });
       if (!transcript || transcript.utterances.length === 0) {
         return {
           ok: false,
@@ -150,8 +154,8 @@ export const addCaptions = action({
     projectId: v.id("projects"),
     style: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
-    const transcript = await ctx.runQuery(api.transcripts.get, {
+  handler: async (ctx, args): Promise<{ ok: boolean; message: string; captionCount?: number }> => {
+    const transcript: TranscriptResult = await ctx.runQuery(api.transcripts.get, {
       projectId: args.projectId,
     });
 
@@ -159,12 +163,13 @@ export const addCaptions = action({
       return { ok: false, message: "Pas de transcript disponible." };
     }
 
-    const segments = transcript.utterances.map((u: { start: number; end: number }, i: number) => ({
-      sourceStart: u.start,
-      sourceEnd: u.end,
-      timelineStart: u.start,
-      order: i,
-    }));
+    const segments: { sourceStart: number; sourceEnd: number; timelineStart: number; order: number }[] =
+      transcript.utterances.map((u: Utterance, i: number) => ({
+        sourceStart: u.start,
+        sourceEnd: u.end,
+        timelineStart: u.start,
+        order: i,
+      }));
 
     await ctx.runMutation(internal.segments.replaceTrack, {
       projectId: args.projectId,
@@ -190,7 +195,7 @@ export const generateMusic = action({
     description: v.string(),
     durationSeconds: v.optional(v.number()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ ok: boolean; message: string; storageId?: string }> => {
     const apiKey = process.env.HF_API_KEY;
     if (!apiKey) {
       return { ok: false, message: "HF_API_KEY non configuré sur le serveur." };
