@@ -8,8 +8,8 @@ import {
   useState,
   type KeyboardEvent,
   type ReactNode,
-  type RefObject,
 } from "react";
+import { Player, type PlayerRef } from "@remotion/player";
 import {
   ChevronsLeft,
   ChevronLeft,
@@ -22,171 +22,242 @@ import {
   Minimize,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { VideoComposition, type Caption, type CompositionProps } from "./remotion/composition";
+import type { CaptionStyle } from "./remotion/caption-overlay";
+
+// ─── Public handle (replaces HTMLVideoElement ref) ────────────────────────────
+
+export type VideoPlayerHandle = {
+  seekTo: (seconds: number) => void;
+};
+
+// ─── Props ────────────────────────────────────────────────────────────────────
 
 type Props = {
   videoUrl: string | null;
+  captions?: Caption[];
+  captionStyle?: CaptionStyle;
   onTimeUpdate?: (t: number) => void;
   onDurationChange?: (d: number) => void;
 };
 
-export const VideoPlayer = forwardRef<HTMLVideoElement, Props>(
-  function VideoPlayer({ videoUrl, onTimeUpdate, onDurationChange }, ref) {
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
+const FPS = 30;
+
+function fmt(t: number) {
+  if (!Number.isFinite(t)) return "00:00";
+  const m = Math.floor(t / 60);
+  const s = Math.floor(t % 60);
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+// ─── VideoPlayer ──────────────────────────────────────────────────────────────
+
+export const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
+  function VideoPlayer(
+    {
+      videoUrl,
+      captions = [],
+      captionStyle = "minimal",
+      onTimeUpdate,
+      onDurationChange,
+    },
+    ref
+  ) {
+    const playerRef = useRef<PlayerRef>(null);
+
+    const [dims, setDims] = useState<{
+      width: number;
+      height: number;
+      duration: number;
+    } | null>(null);
+
+    const [currentTime, setCurrentTime] = useState(0);
     const [playing, setPlaying] = useState(false);
     const [muted, setMuted] = useState(false);
-    const [zoomPct] = useState(100);
     const [fs, setFs] = useState(false);
-    const [aspectRatio, setAspectRatio] = useState<string>("16 / 9");
 
-    useImperativeHandle(ref, () => videoRef.current as HTMLVideoElement, []);
-
+    // Detect video dimensions + duration before mounting Remotion
     useEffect(() => {
-      const onFs = () =>
-        setFs(Boolean(document.fullscreenElement === containerRef.current));
-      document.addEventListener("fullscreenchange", onFs);
-      return () => document.removeEventListener("fullscreenchange", onFs);
-    }, []);
+      if (!videoUrl) return;
+      setDims(null);
+      const v = document.createElement("video");
+      v.src = videoUrl;
+      v.preload = "metadata";
+      v.onloadedmetadata = () => {
+        const d = {
+          width: v.videoWidth || 1920,
+          height: v.videoHeight || 1080,
+          duration: v.duration,
+        };
+        setDims(d);
+        onDurationChange?.(d.duration);
+      };
+      return () => { v.src = ""; };
+    }, [videoUrl, onDurationChange]);
 
-    function toggleFs() {
-      const el = containerRef.current;
-      if (!el) return;
-      if (!document.fullscreenElement) {
-        void el.requestFullscreen?.();
-      } else {
-        void document.exitFullscreen?.();
-      }
-    }
+    // Expose seekTo via ref
+    useImperativeHandle(ref, () => ({
+      seekTo: (seconds: number) => {
+        playerRef.current?.seekTo(Math.round(seconds * FPS));
+      },
+    }), []);
 
-    function fmt(t: number) {
-      if (!Number.isFinite(t)) return "00:00";
-      const m = Math.floor(t / 60);
-      const s = Math.floor(t % 60);
-      return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-    }
+    // Poll current time from Remotion
+    useEffect(() => {
+      if (!dims) return;
+      const id = window.setInterval(() => {
+        const frame = playerRef.current?.getCurrentFrame();
+        if (frame != null) {
+          const t = frame / FPS;
+          setCurrentTime(t);
+          onTimeUpdate?.(t);
+        }
+      }, 80);
+      return () => window.clearInterval(id);
+    }, [dims, onTimeUpdate]);
 
+    // Play / pause / ended events
+    useEffect(() => {
+      if (!dims) return;
+      const p = playerRef.current;
+      if (!p) return;
+      const onPlay = () => setPlaying(true);
+      const onPause = () => setPlaying(false);
+      const onEnded = () => setPlaying(false);
+      p.addEventListener("play", onPlay);
+      p.addEventListener("pause", onPause);
+      p.addEventListener("ended", onEnded);
+      return () => {
+        p.removeEventListener("play", onPlay);
+        p.removeEventListener("pause", onPause);
+        p.removeEventListener("ended", onEnded);
+      };
+    }, [dims]);
+
+    // ── Placeholder: no video ────────────────────────────────────────────────
     if (!videoUrl) {
       return (
-        <div className="flex aspect-video w-full max-w-5xl items-center justify-center rounded-2xl border border-white/[0.08] bg-[#1a1a1e] text-sm text-white/45 shadow-2xl ring-1 ring-black/40">
+        <div className="flex aspect-video w-full max-w-5xl items-center justify-center rounded-2xl border border-white/[0.08] bg-[#1a1a1e] text-sm text-white/45 shadow-2xl">
           Vidéo en cours de traitement…
         </div>
       );
     }
 
+    // ── Loading dimensions ───────────────────────────────────────────────────
+    if (!dims) {
+      return (
+        <div className="flex aspect-video w-full max-w-5xl items-center justify-center rounded-2xl bg-black text-sm text-white/30">
+          Chargement…
+        </div>
+      );
+    }
+
+    const durationInFrames = Math.max(1, Math.round(dims.duration * FPS));
+    const inputProps: CompositionProps = { videoUrl, captions, captionStyle };
+
     return (
       <div
-        ref={containerRef}
         className={cn(
           "relative max-h-full max-w-full overflow-hidden rounded-2xl bg-black shadow-2xl ring-1 ring-white/[0.07]",
-          fs && "flex max-h-none max-w-none flex-1 rounded-none ring-0",
+          fs && "max-h-none max-w-none flex-1 rounded-none ring-0"
         )}
-        style={fs ? undefined : { aspectRatio }}
+        style={fs ? undefined : { aspectRatio: `${dims.width} / ${dims.height}` }}
       >
-        <video
-          ref={videoRef}
-          src={videoUrl}
-          className="h-full w-full"
-          style={{ display: "block" }}
-          playsInline
-          muted={muted}
-          onPlay={() => setPlaying(true)}
-          onPause={() => setPlaying(false)}
-          onTimeUpdate={(e) => onTimeUpdate?.(e.currentTarget.currentTime)}
-          onLoadedMetadata={(e) => {
-            const v = e.currentTarget;
-            onDurationChange?.(v.duration);
-            onTimeUpdate?.(0);
-            if (v.videoWidth > 0 && v.videoHeight > 0) {
-              setAspectRatio(`${v.videoWidth} / ${v.videoHeight}`);
-            }
-          }}
-          onEnded={() => setPlaying(false)}
+        <Player
+          ref={playerRef}
+          component={VideoComposition}
+          durationInFrames={durationInFrames}
+          fps={FPS}
+          compositionWidth={dims.width}
+          compositionHeight={dims.height}
+          inputProps={inputProps}
+          controls={false}
+          clickToPlay
+          doubleClickToFullscreen={false}
+          acknowledgeRemotionLicense
+          style={{ width: "100%", height: "100%", display: "block" }}
         />
 
+        {/* Custom controls overlay */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent pt-16 pb-1">
           <div className="pointer-events-auto space-y-2 px-3 pb-3 md:px-4">
             <VideoChrome
-              videoRef={videoRef}
+              currentTime={currentTime}
+              duration={dims.duration}
               playing={playing}
               muted={muted}
-              setMuted={setMuted}
-              zoomPct={zoomPct}
+              fullscreen={fs}
               onTogglePlay={() => {
-                const v = videoRef.current;
-                if (!v) return;
-                if (v.paused) void v.play();
-                else v.pause();
+                if (playing) playerRef.current?.pause();
+                else playerRef.current?.play();
               }}
               onSeek={(delta) => {
-                const v = videoRef.current;
-                if (!v || !Number.isFinite(v.duration)) return;
-                v.currentTime = Math.min(
-                  Math.max(0, v.currentTime + delta),
-                  v.duration,
+                const next = Math.min(
+                  Math.max(0, currentTime + delta),
+                  dims.duration
                 );
+                playerRef.current?.seekTo(Math.round(next * FPS));
               }}
-              onGoStart={() => {
-                const v = videoRef.current;
-                if (v) v.currentTime = 0;
+              onSeekAbsolute={(pct) => {
+                playerRef.current?.seekTo(Math.round(pct * durationInFrames));
               }}
-              onGoEnd={() => {
-                const v = videoRef.current;
-                if (v && Number.isFinite(v.duration)) v.currentTime = v.duration;
+              onGoStart={() => playerRef.current?.seekTo(0)}
+              onGoEnd={() => playerRef.current?.seekTo(durationInFrames - 1)}
+              onMuteToggle={() => setMuted((m) => !m)}
+              onToggleFs={() => {
+                if (!fs) {
+                  playerRef.current?.requestFullscreen();
+                  setFs(true);
+                } else {
+                  document.exitFullscreen?.();
+                  setFs(false);
+                }
               }}
               fmt={fmt}
-              toggleFs={toggleFs}
-              fullscreen={fs}
             />
           </div>
         </div>
       </div>
     );
-  },
+  }
 );
 
+// ─── VideoChrome ──────────────────────────────────────────────────────────────
+
 function VideoChrome({
-  videoRef,
+  currentTime,
+  duration,
   playing,
   muted,
-  setMuted,
-  zoomPct,
+  fullscreen,
   onTogglePlay,
   onSeek,
+  onSeekAbsolute,
   onGoStart,
   onGoEnd,
+  onMuteToggle,
+  onToggleFs,
   fmt,
-  toggleFs,
-  fullscreen,
 }: {
-  videoRef: RefObject<HTMLVideoElement | null>;
+  currentTime: number;
+  duration: number;
   playing: boolean;
   muted: boolean;
-  setMuted: (m: boolean) => void;
-  zoomPct: number;
+  fullscreen: boolean;
   onTogglePlay: () => void;
-  onSeek: (seconds: number) => void;
+  onSeek: (delta: number) => void;
+  onSeekAbsolute: (pct: number) => void;
   onGoStart: () => void;
   onGoEnd: () => void;
+  onMuteToggle: () => void;
+  onToggleFs: () => void;
   fmt: (t: number) => string;
-  toggleFs: () => void;
-  fullscreen: boolean;
 }) {
-  const [, tick] = useState(0);
-  useEffect(() => {
-    const id = window.setInterval(() => tick((x) => x + 1), 250);
-    return () => window.clearInterval(id);
-  }, []);
-
-  const v = videoRef.current;
-  const cur = v?.currentTime ?? 0;
-  const dur = v?.duration && Number.isFinite(v.duration) ? v.duration : 0;
-  const pct = dur > 0 ? (cur / dur) * 100 : 0;
+  const pct = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   function onBarClick(e: React.MouseEvent<HTMLButtonElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const p = x / rect.width;
-    if (v && dur > 0) v.currentTime = p * dur;
+    onSeekAbsolute((e.clientX - rect.left) / rect.width);
   }
 
   function onBarKey(e: KeyboardEvent<HTMLButtonElement>) {
@@ -213,8 +284,8 @@ function VideoChrome({
 
       <div className="flex items-center justify-between gap-3 pt-1 text-xs text-white/75">
         <span className="tabular-nums">
-          {fmt(cur)}{" "}
-          <span className="text-white/40">/ {fmt(dur)}</span>
+          {fmt(currentTime)}{" "}
+          <span className="text-white/40">/ {fmt(duration)}</span>
         </span>
 
         <div className="flex flex-1 items-center justify-center gap-0.5 sm:gap-1">
@@ -245,12 +316,11 @@ function VideoChrome({
         </div>
 
         <div className="flex items-center gap-3 text-white/55">
-          <span className="hidden tabular-nums sm:inline">{zoomPct}%</span>
           <button
             type="button"
             className="rounded-md p-1.5 hover:bg-white/10 hover:text-white"
             aria-label={muted ? "Unmute" : "Mute"}
-            onClick={() => setMuted(!muted)}
+            onClick={onMuteToggle}
           >
             <Volume2 className="h-4 w-4" />
           </button>
@@ -258,7 +328,7 @@ function VideoChrome({
             type="button"
             className="rounded-md p-1.5 hover:bg-white/10 hover:text-white"
             aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen"}
-            onClick={toggleFs}
+            onClick={onToggleFs}
           >
             {fullscreen ? (
               <Minimize className="h-4 w-4" />

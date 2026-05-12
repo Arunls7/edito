@@ -19,6 +19,7 @@
     "@huggingface/inference": "^2.8.1",
     "@radix-ui/react-dialog": "^1.1.4",
     "@radix-ui/react-slot": "^1.1.1",
+    "@remotion/player": "^4.0.460",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "convex": "^1.18.0",
@@ -27,6 +28,7 @@
     "next": "15.1.9",
     "react": "19.0.1",
     "react-dom": "19.0.1",
+    "remotion": "^4.0.460",
     "tailwind-merge": "^2.6.0",
     "zod": "^3.24.1",
     "zustand": "^5.0.2"

@@ -4,7 +4,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { use, useEffect, useRef, useState } from "react";
-import { VideoPlayer } from "@/components/video-player";
+import { VideoPlayer, type VideoPlayerHandle } from "@/components/video-player";
 import { Chat } from "@/components/chat";
 import { Timeline } from "@/components/timeline";
 import { EditorTopBar } from "@/components/editor-top-bar";
@@ -26,7 +26,7 @@ export default function ProjectPage({
   );
   const saveTranscript = useMutation(api.transcripts.save);
 
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<VideoPlayerHandle>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(90);
   const [directorBusy, setDirectorBusy] = useState(false);
@@ -74,11 +74,7 @@ export default function ProjectPage({
   }
 
   function seek(seconds: number) {
-    const v = videoRef.current;
-    if (!v) return;
-    const d =
-      v.duration && Number.isFinite(v.duration) ? v.duration : duration;
-    v.currentTime = Math.min(Math.max(0, seconds), d > 0 ? d : seconds);
+    videoRef.current?.seekTo(Math.min(Math.max(0, seconds), duration));
   }
 
   return (
