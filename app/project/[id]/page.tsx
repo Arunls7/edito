@@ -88,39 +88,42 @@ export default function ProjectPage({
         directorStatus={directorBusy ? "busy" : "ready"}
       />
 
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col md:flex-row">
-          <EditorLeftRail
-            projectTitle={project.title}
-            hasVideo={Boolean(project.videoUrl)}
-          />
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* Zone gauche : rail + vidéo + timeline */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {/* Rail + Vidéo côte à côte */}
+          <div className="flex min-h-0 min-w-0 flex-1">
+            <EditorLeftRail
+              projectTitle={project.title}
+              hasVideo={Boolean(project.videoUrl)}
+            />
 
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <div className="flex min-h-0 flex-1 items-center justify-center bg-gradient-to-b from-[#111113] via-[#0e0e10] to-[#0b0b0d] px-3 py-4 md:px-6">
+            <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center bg-gradient-to-b from-[#111113] via-[#0e0e10] to-[#0b0b0d] px-3 py-4 md:px-6">
               <VideoPlayer
                 ref={videoRef}
                 videoUrl={project.videoUrl}
                 onTimeUpdate={setCurrentTime}
-                onDurationChange={(d) => {
+                onDurationChange={(d: number) => {
                   if (Number.isFinite(d) && d > 0) setDuration(d);
                 }}
               />
             </div>
+          </div>
 
-            <div className="h-[200px] shrink-0 sm:h-[220px]">
-              <Timeline
-                projectId={projectId}
-                currentTime={currentTime}
-                duration={duration}
-                hasVideo={Boolean(project.videoUrl)}
-                videoUrl={project.videoUrl}
-                onSeek={seek}
-              />
-            </div>
+          {/* Timeline pleine largeur sous rail + vidéo */}
+          <div className="h-[200px] shrink-0 sm:h-[220px]">
+            <Timeline
+              projectId={projectId}
+              currentTime={currentTime}
+              duration={duration}
+              hasVideo={Boolean(project.videoUrl)}
+              videoUrl={project.videoUrl}
+              onSeek={seek}
+            />
           </div>
         </div>
 
-        <aside className="flex h-[min(380px,42vh)] shrink-0 flex-col border-t border-white/[0.08] lg:h-auto lg:max-w-[420px] lg:w-[380px] lg:border-l lg:border-t-0">
+        <aside className="flex h-full w-[380px] shrink-0 flex-col border-l border-white/[0.08]">
           <Chat projectId={projectId} onBusyChange={setDirectorBusy} />
         </aside>
       </div>
