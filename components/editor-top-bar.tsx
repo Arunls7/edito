@@ -23,10 +23,10 @@ export function EditorTopBar({ projectTitle, directorStatus }: Props) {
         href="/dashboard"
         className="flex min-w-0 items-center gap-2 justify-self-start text-sm font-medium tracking-tight text-white/90 transition hover:text-white"
       >
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--color-accent)] to-[#c44e2a] text-[10px] font-bold text-white shadow-lg shadow-black/40">
-          E
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#F2553C] to-[#7C3AED] text-[10px] font-bold text-white shadow-lg shadow-black/40">
+          R
         </span>
-        <span className="hidden truncate sm:inline">Edito</span>
+        <span className="hidden truncate sm:inline">Rushly</span>
       </Link>
 
       <div className="max-w-[min(420px,46vw)] truncate px-2 text-center text-sm font-medium text-white/95">

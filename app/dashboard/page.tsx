@@ -16,7 +16,7 @@ export default function DashboardPage() {
       <nav className="flex items-center justify-between border-b border-[var(--color-border)] px-8 py-4">
         <Link href="/" className="flex items-center gap-2">
           <div className="h-6 w-6 rounded bg-gradient-to-br from-[var(--color-accent)] to-[#c44e2a]" />
-          <span className="font-medium">Edito</span>
+          <span className="font-medium">Rushly</span>
         </Link>
         {hasClerkPublishableConfig() ? <UserButton /> : null}
       </nav>
