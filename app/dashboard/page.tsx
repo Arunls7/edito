@@ -1,8 +1,8 @@
 "use client";
 
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { UploadZone } from "@/components/upload-zone";
+import { DashboardChat } from "@/components/dashboard-chat";
 import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { Film, Clock } from "lucide-react";
@@ -24,10 +24,10 @@ export default function DashboardPage() {
       <div className="mx-auto max-w-5xl px-8 py-12">
         <h1 className="text-3xl font-serif mb-2">Tes projets</h1>
         <p className="text-[var(--color-text-muted)] mb-8">
-          Upload une vidéo pour commencer. L&apos;agent prend la suite.
+          Décris ton projet et l&apos;agent prend la suite.
         </p>
 
-        <UploadZone />
+        <DashboardChat />
 
         <div className="mt-12">
           <h2 className="text-sm uppercase tracking-wider text-[var(--color-text-dim)] mb-4">
@@ -40,7 +40,7 @@ export default function DashboardPage() {
 
           {projects && projects.length === 0 && (
             <div className="rounded-lg border border-dashed border-[var(--color-border)] p-12 text-center text-[var(--color-text-muted)]">
-              Aucun projet pour l&apos;instant. Upload ta première vidéo ci-dessus.
+              Aucun projet pour l&apos;instant. Décris ton premier projet ci-dessus.
             </div>
           )}
 

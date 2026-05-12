@@ -5,9 +5,9 @@ export default defineSchema({
   projects: defineTable({
     userId: v.string(), // Clerk user ID
     title: v.string(),
-    storageId: v.id("_storage"),
-    sizeBytes: v.number(),
-    mimeType: v.string(),
+    storageId: v.optional(v.id("_storage")),
+    sizeBytes: v.optional(v.number()),
+    mimeType: v.optional(v.string()),
     durationSeconds: v.optional(v.number()),
     status: v.union(
       v.literal("uploaded"),

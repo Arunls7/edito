@@ -34,6 +34,23 @@ export const create = mutation({
   },
 });
 
+// Crée un projet vide depuis le chat (sans vidéo)
+export const createEmpty = mutation({
+  args: {
+    title: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthenticated");
+
+    return await ctx.db.insert("projects", {
+      userId: identity.subject,
+      title: args.title,
+      status: "uploaded",
+    });
+  },
+});
+
 // Liste les projets de l'utilisateur
 export const list = query({
   args: {},
@@ -60,7 +77,9 @@ export const get = query({
     if (!project) return null;
     if (project.userId !== identity.subject) return null;
 
-    const videoUrl = await ctx.storage.getUrl(project.storageId);
+    const videoUrl = project.storageId
+      ? await ctx.storage.getUrl(project.storageId)
+      : null;
 
     return {
       ...project,
