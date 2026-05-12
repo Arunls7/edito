@@ -5,7 +5,7 @@
   "description": "Agentic video editor — MVP",
   "scripts": {
     "dev": "WATCHPACK_POLLING=true next dev --hostname 127.0.0.1",
-    "build": "next build",
+    "build": "npx convex deploy --cmd 'next build'",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",

@@ -114,11 +114,13 @@ export function DashboardChat() {
       setTimeout(() => router.push(`/project/${projectId}`), 700);
     } catch (err) {
       console.error(err);
+      const msg =
+        err instanceof Error ? err.message : String(err);
       setMessages((m) => [
         ...m,
         {
           role: "assistant",
-          content: "Une erreur s'est produite — vérifie ta connexion et réessaie.",
+          content: `Erreur : ${msg}`,
         },
       ]);
       setPending(false);
