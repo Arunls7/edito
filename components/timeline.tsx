@@ -358,9 +358,10 @@ export function Timeline({
     ? Math.min(100, Math.max(0, (currentTime / timelineDuration) * 100))
     : 0;
 
+  type Seg = { start: number; end: number; trackId?: string };
   // Segments grouped by track
-  const mainSegs = segments?.filter((s) => s.trackId === "main" || s.trackId === undefined) ?? [];
-  const musicSegs = segments?.filter((s) => s.trackId === "music") ?? [];
+  const mainSegs = (segments as Seg[] | undefined)?.filter((s) => s.trackId === "main" || s.trackId === undefined) ?? [];
+  const musicSegs = (segments as Seg[] | undefined)?.filter((s) => s.trackId === "music") ?? [];
 
   function setTrack(id: string, partial: Partial<TrackState>) {
     setTrackStates((prev) => ({ ...prev, [id]: { ...prev[id], ...partial } }));
