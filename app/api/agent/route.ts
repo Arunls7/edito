@@ -26,6 +26,10 @@ const ToolSchemas = {
     count: z.number().int().min(1).max(10),
     theme: z.string().optional(),
   }),
+  generate_music: z.object({
+    description: z.string(),
+    duration_seconds: z.number().optional().default(20),
+  }),
 } as const;
 
 const TOOLS: Anthropic.Tool[] = [
@@ -78,6 +82,18 @@ const TOOLS: Anthropic.Tool[] = [
         theme: { type: "string", description: "Thème optionnel pour filtrer" },
       },
       required: ["sourceClipId", "count"],
+    },
+  },
+  {
+    name: "generate_music",
+    description: "Génère une musique de fond via IA (MusicGen) à partir d'une description.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        description: { type: "string", description: "Description du style musical souhaité" },
+        duration_seconds: { type: "number", description: "Durée en secondes (défaut 20)" },
+      },
+      required: ["description"],
     },
   },
 ];

@@ -1,19 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAction } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { ArrowUp, Sparkles, Wrench, Loader2 } from "lucide-react";
+import { ArrowUp, Sparkles, Wrench, Loader2, CheckCircle, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+type ToolStatus = "running" | "done" | "error";
 
 type Message =
   | { role: "user"; content: string }
   | { role: "assistant"; content: string }
-  | {
-      role: "tool";
-      tool: string;
-      input: unknown;
-      status: "pending" | "done" | "error";
-    };
+  | { role: "tool"; tool: string; input: unknown; status: ToolStatus; result?: string };
 
 type Props = {
   projectId: Id<"projects">;
@@ -25,15 +24,51 @@ export function Chat({ projectId, onBusyChange }: Props) {
     {
       role: "assistant",
       content:
-        "Planning the next cut… Describe the story you want — silence removal, captions, pacing, mood.",
+        "Planning the next cut… Décris ce que tu veux — retrait des silences, captions, musique de fond, rythme.",
     },
   ]);
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
 
+  const removeSilences = useAction(api.tools.removeSilences);
+  const addCaptions = useAction(api.tools.addCaptions);
+  const generateMusic = useAction(api.tools.generateMusic);
+
   useEffect(() => {
     onBusyChange?.(pending);
   }, [pending, onBusyChange]);
+
+  async function executeTool(
+    name: string,
+    input: Record<string, unknown>
+  ): Promise<string> {
+    switch (name) {
+      case "remove_silences":
+        const r1 = await removeSilences({
+          projectId,
+          padding_ms: (input.padding_ms as number | undefined) ?? 150,
+        });
+        return (r1 as { message?: string }).message ?? "Silences retirés.";
+
+      case "add_captions":
+        const r2 = await addCaptions({
+          projectId,
+          style: (input.style as string | undefined) ?? "minimal",
+        });
+        return (r2 as { message?: string }).message ?? "Captions ajoutées.";
+
+      case "generate_music":
+        const r3 = await generateMusic({
+          projectId,
+          description: input.description as string,
+          durationSeconds: (input.duration_seconds as number | undefined) ?? 20,
+        });
+        return (r3 as { message?: string }).message ?? "Musique générée.";
+
+      default:
+        return `Outil "${name}" non encore implémenté.`;
+    }
+  }
 
   async function send() {
     if (!input.trim() || pending) return;
@@ -55,19 +90,40 @@ export function Chat({ projectId, onBusyChange }: Props) {
       });
       const data = await res.json();
 
-      const newMessages: Message[] = [];
-      if (data.text) newMessages.push({ role: "assistant", content: data.text });
-      if (data.toolCalls) {
-        for (const tc of data.toolCalls) {
-          newMessages.push({
-            role: "tool",
-            tool: tc.name,
-            input: tc.input,
-            status: "done",
-          });
+      if (data.text) {
+        setMessages((m) => [...m, { role: "assistant", content: data.text }]);
+      }
+
+      // Execute each tool call sequentially, updating status live
+      for (const tc of data.toolCalls ?? []) {
+        const toolMsg: Message = {
+          role: "tool",
+          tool: tc.name,
+          input: tc.input,
+          status: "running",
+        };
+        setMessages((m) => [...m, toolMsg]);
+
+        try {
+          const result = await executeTool(tc.name, tc.input as Record<string, unknown>);
+          setMessages((m) =>
+            m.map((msg, i) =>
+              i === m.length - 1 && msg.role === "tool"
+                ? { ...msg, status: "done" as ToolStatus, result }
+                : msg
+            )
+          );
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          setMessages((m) =>
+            m.map((msg, i) =>
+              i === m.length - 1 && msg.role === "tool"
+                ? { ...msg, status: "error" as ToolStatus, result: errMsg }
+                : msg
+            )
+          );
         }
       }
-      setMessages((m) => [...m, ...newMessages]);
     } catch (e) {
       console.error(e);
       setMessages((m) => [
@@ -100,26 +156,34 @@ export function Chat({ projectId, onBusyChange }: Props) {
         </div>
         <p className="mt-2 text-[11px] leading-snug text-white/45">
           {pending
-            ? "Planning the next cut…"
-            : "Describe edits in plain language — cuts, captions, rhythm."}
+            ? "Exécution en cours…"
+            : "Décris les modifications en langage naturel."}
         </p>
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
         {messages.map((m, i) => {
           if (m.role === "tool") {
+            const icon =
+              m.status === "running" ? (
+                <Loader2 className="h-3 w-3 animate-spin text-amber-400" />
+              ) : m.status === "done" ? (
+                <CheckCircle className="h-3 w-3 text-emerald-400" />
+              ) : (
+                <XCircle className="h-3 w-3 text-red-400" />
+              );
             return (
               <div
                 key={i}
                 className="rounded-xl border border-white/[0.08] bg-black/35 p-3 text-xs font-mono shadow-inner shadow-black/40"
               >
-                <div className="mb-1 flex items-center gap-1.5 text-[var(--color-green)]">
-                  <Wrench className="h-3 w-3" />
-                  {m.tool}
+                <div className="mb-1 flex items-center gap-1.5 text-white/70">
+                  {icon}
+                  <span className="text-[var(--color-green)]">{m.tool}</span>
                 </div>
-                <pre className="overflow-x-auto text-[11px] text-white/55">
-                  {JSON.stringify(m.input, null, 2)}
-                </pre>
+                {m.result && (
+                  <p className="mt-1 text-[11px] text-white/55">{m.result}</p>
+                )}
               </div>
             );
           }
@@ -158,7 +222,7 @@ export function Chat({ projectId, onBusyChange }: Props) {
                 void send();
               }
             }}
-            placeholder="What story do you want to tell?"
+            placeholder="Retire les silences, ajoute des captions, génère de la musique…"
             rows={3}
             disabled={pending}
             className="w-full resize-none bg-transparent px-2 py-2 text-[13px] text-white/90 placeholder:text-white/35 focus:outline-none"

@@ -15,12 +15,6 @@ export const save = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project || project.userId !== identity.subject) throw new Error("Not found");
-
     const existing = await ctx.db
       .query("transcripts")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -38,12 +32,6 @@ export const save = mutation({
 export const get = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project || project.userId !== identity.subject) return null;
-
     return await ctx.db
       .query("transcripts")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))

@@ -1,10 +1,70 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@deepgram/sdk";
-import { auth } from "@clerk/nextjs/server";
 import { hasFullClerkConfig } from "@/lib/clerk-config";
+import { auth } from "@clerk/nextjs/server";
+
+type Utterance = { start: number; end: number; text: string; confidence: number };
+
+// ─── Deepgram ─────────────────────────────────────────────────────────────────
+
+async function transcribeWithDeepgram(audioUrl: string): Promise<Utterance[]> {
+  const deepgram = createClient(process.env.DEEPGRAM_API_KEY!);
+  const { result, error } = await deepgram.listen.prerecorded.transcribeUrl(
+    { url: audioUrl },
+    {
+      model: "nova-3",
+      smart_format: true,
+      punctuate: true,
+      utterances: true,
+      detect_language: true,
+    }
+  );
+  if (error) throw new Error(`Deepgram: ${error.message}`);
+  return (result?.results?.utterances ?? []).map((u) => ({
+    start: u.start,
+    end: u.end,
+    text: u.transcript,
+    confidence: u.confidence,
+  }));
+}
+
+// ─── HF Whisper (fallback) ────────────────────────────────────────────────────
+
+async function transcribeWithWhisper(audioUrl: string): Promise<Utterance[]> {
+  const { HfInference } = await import("@huggingface/inference");
+  const hf = new HfInference(process.env.HF_API_KEY);
+
+  // Fetch the audio/video file
+  const blob = await fetch(audioUrl).then((r) => {
+    if (!r.ok) throw new Error(`Fetch audio failed: ${r.status}`);
+    return r.blob();
+  });
+
+  const result = await hf.automaticSpeechRecognition({
+    model: "openai/whisper-large-v3",
+    data: blob,
+    parameters: { return_timestamps: true } as Record<string, unknown>,
+  });
+
+  // HF returns chunks with [start, end] timestamps
+  const chunks = (result as { chunks?: { timestamp: [number, number]; text: string }[] }).chunks ?? [];
+
+  if (chunks.length > 0) {
+    return chunks.map((c, i) => ({
+      start: c.timestamp[0],
+      end: c.timestamp[1],
+      text: c.text.trim(),
+      confidence: 0.9,
+    }));
+  }
+
+  // No timestamps — return single utterance for the full text
+  return [{ start: 0, end: 0, text: result.text ?? "", confidence: 0.8 }];
+}
+
+// ─── Route ────────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const deepgram = createClient(process.env.DEEPGRAM_API_KEY ?? "");
   if (hasFullClerkConfig()) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -16,37 +76,23 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { result, error } = await deepgram.listen.prerecorded.transcribeUrl(
-      { url: audioUrl },
-      {
-        model: "nova-3",
-        smart_format: true,
-        punctuate: true,
-        diarize: false,
-        utterances: true,
-        detect_language: true,
-      }
-    );
+    let utterances: Utterance[];
 
-    if (error) {
-      console.error("Deepgram error:", error);
-      return NextResponse.json({ error: "Transcription failed" }, { status: 500 });
+    if (process.env.DEEPGRAM_API_KEY) {
+      utterances = await transcribeWithDeepgram(audioUrl);
+    } else if (process.env.HF_API_KEY) {
+      utterances = await transcribeWithWhisper(audioUrl);
+    } else {
+      return NextResponse.json(
+        { error: "Aucune clé de transcription configurée (DEEPGRAM_API_KEY ou HF_API_KEY)" },
+        { status: 503 }
+      );
     }
 
-    const utterances = result?.results?.utterances ?? [];
-    const transcript = result?.results?.channels?.[0]?.alternatives?.[0]?.transcript ?? "";
-
-    return NextResponse.json({
-      transcript,
-      utterances: utterances.map((u) => ({
-        start: u.start,
-        end: u.end,
-        text: u.transcript,
-        confidence: u.confidence,
-      })),
-    });
+    const transcript = utterances.map((u) => u.text).join(" ");
+    return NextResponse.json({ transcript, utterances });
   } catch (err) {
     console.error("Transcribe error:", err);
-    return NextResponse.json({ error: "Failed" }, { status: 500 });
+    return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }
