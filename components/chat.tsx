@@ -80,6 +80,12 @@ export function Chat({ projectId, onBusyChange }: Props) {
       });
       const data = await res.json();
 
+      if (!res.ok) {
+        const errText = data?.error ?? `HTTP ${res.status}`;
+        setMessages((m) => [...m, { role: "assistant", content: `Erreur : ${errText}` }]);
+        return;
+      }
+
       if (data.text) setMessages((m) => [...m, { role: "assistant", content: data.text }]);
 
       for (const tc of data.toolCalls ?? []) {

@@ -4,7 +4,11 @@ import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { hasFullClerkConfig } from "@/lib/clerk-config";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+// ANTHROPIC_BASE_URL is set by Fleet View / proxy environments — no key needed there.
+// In production set ANTHROPIC_API_KEY directly.
+const client = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY ?? "proxy-auth-via-base-url",
+});
 
 const ToolSchemas = {
   trim_clip: z.object({
@@ -161,6 +165,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ text, toolCalls });
   } catch (err) {
     console.error("Agent error:", err);
-    return NextResponse.json({ error: "Agent failed" }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
