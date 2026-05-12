@@ -159,7 +159,7 @@ export const addCaptions = action({
       return { ok: false, message: "Pas de transcript disponible." };
     }
 
-    const segments = transcript.utterances.map((u, i) => ({
+    const segments = transcript.utterances.map((u: { start: number; end: number }, i: number) => ({
       sourceStart: u.start,
       sourceEnd: u.end,
       timelineStart: u.start,
