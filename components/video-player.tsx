@@ -37,6 +37,7 @@ export const VideoPlayer = forwardRef<HTMLVideoElement, Props>(
     const [muted, setMuted] = useState(false);
     const [zoomPct] = useState(100);
     const [fs, setFs] = useState(false);
+    const [aspectRatio, setAspectRatio] = useState<string>("16 / 9");
 
     useImperativeHandle(ref, () => videoRef.current as HTMLVideoElement, []);
 
@@ -76,22 +77,27 @@ export const VideoPlayer = forwardRef<HTMLVideoElement, Props>(
       <div
         ref={containerRef}
         className={cn(
-          "relative w-full max-w-5xl overflow-hidden rounded-2xl bg-black shadow-2xl ring-1 ring-white/[0.07]",
+          "relative max-h-full max-w-full overflow-hidden rounded-2xl bg-black shadow-2xl ring-1 ring-white/[0.07]",
           fs && "flex max-h-none max-w-none flex-1 rounded-none ring-0",
         )}
       >
         <video
           ref={videoRef}
           src={videoUrl}
-          className="aspect-video w-full object-contain"
+          className="max-h-full w-full"
+          style={{ aspectRatio, display: "block" }}
           playsInline
           muted={muted}
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}
           onTimeUpdate={(e) => onTimeUpdate?.(e.currentTarget.currentTime)}
           onLoadedMetadata={(e) => {
-            onDurationChange?.(e.currentTarget.duration);
+            const v = e.currentTarget;
+            onDurationChange?.(v.duration);
             onTimeUpdate?.(0);
+            if (v.videoWidth > 0 && v.videoHeight > 0) {
+              setAspectRatio(`${v.videoWidth} / ${v.videoHeight}`);
+            }
           }}
           onEnded={() => setPlaying(false)}
         />
