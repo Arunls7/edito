@@ -27,6 +27,7 @@ import {
   VideoComposition,
   type Caption,
   type CompositionProps,
+  type VideoSegment,
 } from "./remotion/composition";
 import type { CaptionStyle } from "./remotion/caption-overlay";
 
@@ -38,10 +39,13 @@ export type VideoPlayerHandle = {
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
+export type { VideoSegment };
+
 type Props = {
   videoUrl: string | null;
   captions?: Caption[];
   captionStyle?: CaptionStyle;
+  segments?: VideoSegment[];
   onTimeUpdate?: (t: number) => void;
   onDurationChange?: (d: number) => void;
 };
@@ -59,7 +63,7 @@ function fmt(t: number) {
 
 export const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
   function VideoPlayer(
-    { videoUrl, captions = [], captionStyle = "minimal", onTimeUpdate, onDurationChange },
+    { videoUrl, captions = [], captionStyle = "minimal", segments = [], onTimeUpdate, onDurationChange },
     ref
   ) {
     const playerRef = useRef<PlayerRef>(null);
@@ -187,8 +191,11 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
         )}
 
         {videoUrl && dims && display && (() => {
-          const durationInFrames = Math.max(1, Math.round(dims.duration * FPS));
-          const inputProps: CompositionProps = { videoUrl, captions, captionStyle };
+          const editDuration = segments.length > 0
+            ? Math.max(...segments.map((s) => s.timelineStart + (s.sourceEnd - s.sourceStart)))
+            : dims.duration;
+          const durationInFrames = Math.max(1, Math.round(editDuration * FPS));
+          const inputProps: CompositionProps = { videoUrl, captions, captionStyle, segments };
 
           return (
             <div

@@ -95,10 +95,13 @@ export const listSegments = query({
     return segments
       .sort((a, b) => a.order - b.order)
       .map((s) => ({
+        id: s._id,
         start: s.timelineStart,
         end: s.timelineStart + (s.sourceEnd - s.sourceStart),
         trackId: s.trackId,
         text: s.text,
+        sourceStart: s.sourceStart,
+        sourceEnd: s.sourceEnd,
       }));
   },
 });

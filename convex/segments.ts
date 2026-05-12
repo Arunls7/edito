@@ -1,4 +1,4 @@
-import { internalMutation } from "./_generated/server";
+import { internalMutation, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
 const segmentFields = v.object({
@@ -35,5 +35,25 @@ export const replaceTrack = internalMutation({
     }
 
     return args.segments.length;
+  },
+});
+
+// Trim a single segment's in/out points (non-ripple)
+export const trimClip = mutation({
+  args: {
+    segmentId: v.id("segments"),
+    sourceStart: v.number(),
+    sourceEnd: v.number(),
+    timelineStart: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const seg = await ctx.db.get(args.segmentId);
+    if (!seg) throw new Error("Segment not found");
+    if (args.sourceEnd - args.sourceStart < 0.05) throw new Error("Clip too short");
+    await ctx.db.patch(args.segmentId, {
+      sourceStart: args.sourceStart,
+      sourceEnd: args.sourceEnd,
+      timelineStart: args.timelineStart,
+    });
   },
 });

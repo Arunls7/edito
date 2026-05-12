@@ -12,6 +12,7 @@ import { Timeline } from "@/components/timeline";
 import { EditorTopBar } from "@/components/editor-top-bar";
 import { EditorLeftRail } from "@/components/editor-left-rail";
 import { Loader2 } from "lucide-react";
+import type { VideoSegment } from "@/components/video-player";
 
 export default function ProjectPage({
   params,
@@ -40,10 +41,21 @@ export default function ProjectPage({
   const [transcribing, setTranscribing] = useState(false);
   const [captionStyle, setCaptionStyle] = useState<CaptionStyle>("minimal");
 
-  type Seg = { start: number; end: number; trackId?: string; text?: string };
-  const captions: Caption[] = (segments as Seg[] | undefined ?? [])
+  type Seg = { id: string; start: number; end: number; trackId?: string; text?: string; sourceStart: number; sourceEnd: number };
+  const allSegs = (segments as Seg[] | undefined) ?? [];
+
+  const captions: Caption[] = allSegs
     .filter((s) => s.trackId === "captions" && s.text)
     .map((s) => ({ start: s.start, end: s.end, text: s.text! }));
+
+  const mainSegs: VideoSegment[] = allSegs
+    .filter((s) => s.trackId === "main")
+    .map((s) => ({
+      id: s.id,
+      timelineStart: s.start,
+      sourceStart: s.sourceStart,
+      sourceEnd: s.sourceEnd,
+    }));
 
   useEffect(() => {
     if (!project?.videoUrl || transcript !== null || transcribing) return;
@@ -117,6 +129,7 @@ export default function ProjectPage({
                 videoUrl={project.videoUrl}
                 captions={captions}
                 captionStyle={captionStyle}
+                segments={mainSegs}
                 onTimeUpdate={setCurrentTime}
                 onDurationChange={(d: number) => {
                   if (Number.isFinite(d) && d > 0) setDuration(d);

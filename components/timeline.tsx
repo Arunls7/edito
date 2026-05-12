@@ -3,13 +3,16 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
+  useCallback,
   type ReactNode,
 } from "react";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Eye, EyeOff, Lock, Unlock, Volume2, VolumeX, Film, Music } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,10 +34,20 @@ type TrackDef = {
 
 type TrackState = { visible: boolean; muted: boolean; locked: boolean };
 
+type Seg = {
+  id: string;
+  start: number;
+  end: number;
+  trackId?: string;
+  sourceStart: number;
+  sourceEnd: number;
+};
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const HEADER_W = 152;
 const RULER_H = 22;
+const MIN_CLIP_DURATION = 0.1; // seconds
 
 const TRACKS: TrackDef[] = [
   { id: "v2",    label: "V2",    kind: "video", height: 56 },
@@ -136,54 +149,201 @@ function Ruler({ duration, onClick }: { duration: number; onClick: (t: number) =
   );
 }
 
-// ─── VideoClip ────────────────────────────────────────────────────────────────
+// ─── TrimHandle ───────────────────────────────────────────────────────────────
 
-function VideoClip({
-  left, width, label, videoUrl, startTime,
-}: {
-  left: number; width: number; label: string;
-  videoUrl?: string | null; startTime: number;
-}) {
-  const thumb = useVideoThumbnail(videoUrl, startTime);
+type TrimHandleProps = {
+  side: "in" | "out";
+  timelineDuration: number;
+  trackContentRef: React.RefObject<HTMLDivElement | null>;
+  sourceStart: number;
+  sourceEnd: number;
+  timelineStart: number;
+  onLocalChange: (newLeft: number, newWidth: number) => void;
+  onCommit: (sourceStart: number, sourceEnd: number, timelineStart: number) => void;
+};
+
+function TrimHandle({
+  side,
+  timelineDuration,
+  trackContentRef,
+  sourceStart,
+  sourceEnd,
+  timelineStart,
+  onLocalChange,
+  onCommit,
+}: TrimHandleProps) {
+  const dragRef = useRef({
+    x: 0,
+    sStart: sourceStart,
+    sEnd: sourceEnd,
+    tStart: timelineStart,
+  });
+
+  const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = { x: e.clientX, sStart: sourceStart, sEnd: sourceEnd, tStart: timelineStart };
+  }, [sourceStart, sourceEnd, timelineStart]);
+
+  const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    const dx = e.clientX - dragRef.current.x;
+    dragRef.current.x = e.clientX;
+
+    const trackWidth = trackContentRef.current?.clientWidth ?? 1;
+    const dt = (dx / trackWidth) * timelineDuration;
+
+    if (side === "in") {
+      const newSStart = Math.max(0, Math.min(dragRef.current.sStart + dt, dragRef.current.sEnd - MIN_CLIP_DURATION));
+      const delta = newSStart - dragRef.current.sStart;
+      dragRef.current.sStart = newSStart;
+      dragRef.current.tStart = Math.max(0, dragRef.current.tStart + delta);
+    } else {
+      dragRef.current.sEnd = Math.max(dragRef.current.sStart + MIN_CLIP_DURATION, dragRef.current.sEnd + dt);
+    }
+
+    const newLeft = (dragRef.current.tStart / timelineDuration) * 100;
+    const newWidth = ((dragRef.current.sEnd - dragRef.current.sStart) / timelineDuration) * 100;
+    onLocalChange(newLeft, newWidth);
+  }, [side, timelineDuration, trackContentRef, onLocalChange]);
+
+  const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    onCommit(dragRef.current.sStart, dragRef.current.sEnd, dragRef.current.tStart);
+  }, [onCommit]);
 
   return (
     <div
-      className="absolute inset-y-[3px] overflow-hidden rounded-[3px]"
-      style={{ left: `${left}%`, width: `${Math.max(width, 0.3)}%` }}
-    >
-      {/* Base gradient */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#3a6ea8] to-[#2a5a90]" />
-
-      {/* Tiled thumbnail strip */}
-      {thumb && (
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `url(${thumb})`,
-            backgroundSize: "auto 100%",
-            backgroundRepeat: "repeat-x",
-            backgroundPosition: "left center",
-            opacity: 0.55,
-          }}
-        />
+      className={cn(
+        "group/handle absolute top-0 bottom-0 z-20 flex cursor-ew-resize items-center",
+        "opacity-0 hover:opacity-100 transition-opacity",
+        // Make the hit area wider than the visual bar
+        side === "in" ? "left-0 w-4 justify-start pl-[3px]" : "right-0 w-4 justify-end pr-[3px]"
       )}
+      style={{ touchAction: "none" }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+    >
+      {/* Visual handle bar */}
+      <div className="h-[70%] w-[3px] rounded-full bg-white shadow-[0_0_4px_rgba(0,0,0,0.8)]" />
+    </div>
+  );
+}
 
-      {/* Top highlight */}
-      <div className="absolute inset-x-0 top-0 h-px bg-[#6aaee8]/60" />
+// ─── VideoClip ────────────────────────────────────────────────────────────────
 
-      {/* Left edge accent */}
-      <div className="absolute inset-y-0 left-0 w-[3px] bg-[#6aaee8]/80" />
+type VideoClipProps = {
+  left: number;
+  width: number;
+  label: string;
+  videoUrl?: string | null;
+  startTime: number;
+  // Trim props (undefined = no handles, e.g. "Rush brut" fallback)
+  segmentId?: Id<"segments">;
+  sourceStart?: number;
+  sourceEnd?: number;
+  timelineStart?: number;
+  timelineDuration?: number;
+  trackContentRef?: React.RefObject<HTMLDivElement | null>;
+  onTrim?: (segmentId: Id<"segments">, sourceStart: number, sourceEnd: number, timelineStart: number) => void;
+};
 
-      {/* Label */}
-      <div className="absolute inset-x-1 top-[3px] flex items-center gap-1 overflow-hidden">
-        <Film className="h-2.5 w-2.5 shrink-0 text-white/80" />
-        <span className="truncate font-sans text-[10px] font-semibold text-white/90 drop-shadow-sm">
-          {label}
-        </span>
+function VideoClip({
+  left,
+  width,
+  label,
+  videoUrl,
+  startTime,
+  segmentId,
+  sourceStart = 0,
+  sourceEnd = 0,
+  timelineStart = 0,
+  timelineDuration = 90,
+  trackContentRef,
+  onTrim,
+}: VideoClipProps) {
+  const thumb = useVideoThumbnail(videoUrl, startTime);
+  const [localPos, setLocalPos] = useState<{ left: number; width: number } | null>(null);
+
+  const dl = localPos?.left ?? left;
+  const dw = localPos?.width ?? width;
+
+  const handleCommit = useCallback((sS: number, sE: number, tS: number) => {
+    setLocalPos(null);
+    if (segmentId) onTrim?.(segmentId, sS, sE, tS);
+  }, [segmentId, onTrim]);
+
+  const canTrim = Boolean(segmentId && trackContentRef && onTrim);
+
+  return (
+    <div
+      className="absolute inset-y-[3px] overflow-visible rounded-[3px] group"
+      style={{ left: `${dl}%`, width: `${Math.max(dw, 0.3)}%` }}
+    >
+      {/* Clip body */}
+      <div className="absolute inset-0 overflow-hidden rounded-[3px]">
+        {/* Base gradient */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#3a6ea8] to-[#2a5a90]" />
+
+        {/* Tiled thumbnail strip */}
+        {thumb && (
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `url(${thumb})`,
+              backgroundSize: "auto 100%",
+              backgroundRepeat: "repeat-x",
+              backgroundPosition: "left center",
+              opacity: 0.55,
+            }}
+          />
+        )}
+
+        {/* Top highlight */}
+        <div className="absolute inset-x-0 top-0 h-px bg-[#6aaee8]/60" />
+
+        {/* Left edge accent */}
+        <div className="absolute inset-y-0 left-0 w-[3px] bg-[#6aaee8]/80" />
+
+        {/* Label */}
+        <div className="absolute inset-x-1 top-[3px] flex items-center gap-1 overflow-hidden">
+          <Film className="h-2.5 w-2.5 shrink-0 text-white/80" />
+          <span className="truncate font-sans text-[10px] font-semibold text-white/90 drop-shadow-sm">
+            {label}
+          </span>
+        </div>
+
+        {/* Bottom shade */}
+        <div className="absolute inset-x-0 bottom-0 h-px bg-black/40" />
       </div>
 
-      {/* Bottom shade */}
-      <div className="absolute inset-x-0 bottom-0 h-px bg-black/40" />
+      {/* Trim handles — rendered outside overflow-hidden clip body */}
+      {canTrim && (
+        <>
+          <TrimHandle
+            side="in"
+            timelineDuration={timelineDuration}
+            trackContentRef={trackContentRef!}
+            sourceStart={sourceStart}
+            sourceEnd={sourceEnd}
+            timelineStart={timelineStart}
+            onLocalChange={(l, w) => setLocalPos({ left: l, width: w })}
+            onCommit={handleCommit}
+          />
+          <TrimHandle
+            side="out"
+            timelineDuration={timelineDuration}
+            trackContentRef={trackContentRef!}
+            sourceStart={sourceStart}
+            sourceEnd={sourceEnd}
+            timelineStart={timelineStart}
+            onLocalChange={(l, w) => setLocalPos({ left: l, width: w })}
+            onCommit={handleCommit}
+          />
+        </>
+      )}
     </div>
   );
 }
@@ -249,7 +409,6 @@ function TrackHeader({
       className="flex shrink-0 items-center gap-1 border-b border-r border-white/[0.07] bg-[#252529] px-2"
       style={{ height: track.height }}
     >
-      {/* Track name */}
       <span className="w-8 font-mono text-[11px] font-semibold text-white/70">
         {track.label}
       </span>
@@ -261,10 +420,7 @@ function TrackHeader({
             onClick={() => onChange({ visible: !state.visible })}
             title={state.visible ? "Hide" : "Show"}
           >
-            {state.visible
-              ? <Eye className="h-3 w-3" />
-              : <EyeOff className="h-3 w-3" />
-            }
+            {state.visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
           </button>
         ) : (
           <button
@@ -272,10 +428,7 @@ function TrackHeader({
             onClick={() => onChange({ muted: !state.muted })}
             title={state.muted ? "Unmute" : "Mute"}
           >
-            {state.muted
-              ? <VolumeX className="h-3 w-3" />
-              : <Volume2 className="h-3 w-3" />
-            }
+            {state.muted ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
           </button>
         )}
 
@@ -284,10 +437,7 @@ function TrackHeader({
           onClick={() => onChange({ locked: !state.locked })}
           title={state.locked ? "Unlock" : "Lock"}
         >
-          {state.locked
-            ? <Lock className="h-3 w-3" />
-            : <Unlock className="h-3 w-3" />
-          }
+          {state.locked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
         </button>
       </div>
     </div>
@@ -311,10 +461,9 @@ function SectionLabel({ label }: { label: string }) {
 function Playhead({ pct }: { pct: number }) {
   return (
     <div
-      className="pointer-events-none absolute inset-y-0 z-30 w-px translate-x-0"
+      className="pointer-events-none absolute inset-y-0 z-30 w-px"
       style={{ left: `${pct}%` }}
     >
-      {/* Diamond head */}
       <div className="absolute -top-[1px] left-1/2 -translate-x-1/2">
         <div
           className="h-0 w-0"
@@ -325,8 +474,21 @@ function Playhead({ pct }: { pct: number }) {
           }}
         />
       </div>
-      {/* Line */}
       <div className="absolute bottom-0 left-1/2 top-0 w-px -translate-x-1/2 bg-[#f5a623]/80 shadow-[0_0_6px_rgba(245,166,35,0.5)]" />
+    </div>
+  );
+}
+
+// ─── TrackRow ─────────────────────────────────────────────────────────────────
+
+function TrackRow({ track, children }: { track: TrackDef; children?: ReactNode }) {
+  return (
+    <div
+      className="relative border-b border-white/[0.06] bg-[#1e1e22]"
+      style={{ height: track.height }}
+    >
+      <div className="absolute inset-0 bg-gradient-to-b from-white/[0.015] to-transparent" />
+      {children}
     </div>
   );
 }
@@ -342,6 +504,9 @@ export function Timeline({
   onSeek,
 }: Props) {
   const segments = useQuery(api.projects.listSegments, { projectId });
+  const trimClip = useMutation(api.segments.trimClip);
+
+  const trackContentRef = useRef<HTMLDivElement>(null);
 
   const [trackStates, setTrackStates] = useState<Record<string, TrackState>>(() =>
     Object.fromEntries(
@@ -358,19 +523,32 @@ export function Timeline({
     ? Math.min(100, Math.max(0, (currentTime / timelineDuration) * 100))
     : 0;
 
-  type Seg = { start: number; end: number; trackId?: string };
-  // Segments grouped by track
-  const mainSegs = (segments as Seg[] | undefined)?.filter((s) => s.trackId === "main" || s.trackId === undefined) ?? [];
-  const musicSegs = (segments as Seg[] | undefined)?.filter((s) => s.trackId === "music") ?? [];
+  const mainSegs = (segments as Seg[] | undefined)?.filter(
+    (s) => s.trackId === "main" || s.trackId === undefined
+  ) ?? [];
+  const musicSegs = (segments as Seg[] | undefined)?.filter(
+    (s) => s.trackId === "music"
+  ) ?? [];
 
   function setTrack(id: string, partial: Partial<TrackState>) {
     setTrackStates((prev) => ({ ...prev, [id]: { ...prev[id], ...partial } }));
   }
 
   function onTrackClick(e: React.MouseEvent<HTMLDivElement>) {
+    // Don't seek when interacting with clip controls
+    if ((e.target as HTMLElement).closest("[data-clip]")) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const p = (e.clientX - rect.left) / rect.width;
     onSeek(p * timelineDuration);
+  }
+
+  function handleTrim(
+    segmentId: Id<"segments">,
+    sourceStart: number,
+    sourceEnd: number,
+    timelineStart: number
+  ) {
+    void trimClip({ segmentId, sourceStart, sourceEnd, timelineStart });
   }
 
   const videoTracks = TRACKS.filter((t) => t.kind === "video");
@@ -392,42 +570,24 @@ export function Timeline({
       {/* Headers + tracks */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Left headers column */}
-        <div
-          className="flex shrink-0 flex-col overflow-hidden"
-          style={{ width: HEADER_W }}
-        >
-          {/* Ruler spacer */}
+        <div className="flex shrink-0 flex-col overflow-hidden" style={{ width: HEADER_W }}>
           <div
             className="shrink-0 border-b border-r border-white/[0.07] bg-[#1e1e22]"
             style={{ height: RULER_H }}
           />
-
-          {/* Video section */}
           <SectionLabel label="Video" />
           {videoTracks.map((t) => (
-            <TrackHeader
-              key={t.id}
-              track={t}
-              state={trackStates[t.id]}
-              onChange={(s) => setTrack(t.id, s)}
-            />
+            <TrackHeader key={t.id} track={t} state={trackStates[t.id]} onChange={(s) => setTrack(t.id, s)} />
           ))}
-
-          {/* Audio section */}
           <SectionLabel label="Audio" />
           {audioTracks.map((t) => (
-            <TrackHeader
-              key={t.id}
-              track={t}
-              state={trackStates[t.id]}
-              onChange={(s) => setTrack(t.id, s)}
-            />
+            <TrackHeader key={t.id} track={t} state={trackStates[t.id]} onChange={(s) => setTrack(t.id, s)} />
           ))}
         </div>
 
         {/* Scrollable track area */}
         <div className="relative min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
-          <div className="relative min-w-[560px]">
+          <div ref={trackContentRef} className="relative min-w-[560px]">
             {/* Ruler */}
             <div
               className="sticky top-0 z-20 border-b border-white/[0.07] bg-[#222226]"
@@ -438,7 +598,7 @@ export function Timeline({
 
             {/* Track rows */}
             <div className="relative" onClick={onTrackClick} role="presentation">
-              {/* Video section label spacer */}
+              {/* Video section spacer */}
               <div className="h-5 border-b border-white/[0.07] bg-[#1c1c20]" />
 
               {/* V2 – B-roll */}
@@ -451,7 +611,8 @@ export function Timeline({
                     Chargement…
                   </div>
                 )}
-                {hasVideo && segments && segments.length === 0 && (
+                {/* Fallback: full raw clip before any editing */}
+                {hasVideo && segments && mainSegs.length === 0 && (
                   <VideoClip
                     left={0}
                     width={100}
@@ -460,23 +621,32 @@ export function Timeline({
                     startTime={0}
                   />
                 )}
+                {/* Edited segments with trim handles */}
                 {mainSegs.map((s, i) => {
                   const left = (s.start / timelineDuration) * 100;
                   const width = ((s.end - s.start) / timelineDuration) * 100;
                   return (
-                    <VideoClip
-                      key={i}
-                      left={left}
-                      width={width}
-                      label={`Clip ${i + 1}`}
-                      videoUrl={videoUrl}
-                      startTime={s.start}
-                    />
+                    <div key={s.id || i} data-clip="true">
+                      <VideoClip
+                        left={left}
+                        width={width}
+                        label={`Clip ${i + 1}`}
+                        videoUrl={videoUrl}
+                        startTime={s.sourceStart}
+                        segmentId={s.id as Id<"segments">}
+                        sourceStart={s.sourceStart}
+                        sourceEnd={s.sourceEnd}
+                        timelineStart={s.start}
+                        timelineDuration={timelineDuration}
+                        trackContentRef={trackContentRef}
+                        onTrim={handleTrim}
+                      />
+                    </div>
                   );
                 })}
               </TrackRow>
 
-              {/* Audio section label spacer */}
+              {/* Audio section spacer */}
               <div className="h-5 border-b border-white/[0.07] bg-[#1c1c20]" />
 
               {/* A1 – Main audio */}
@@ -488,21 +658,13 @@ export function Timeline({
 
               {/* Music */}
               <TrackRow track={audioTracks[1]}>
-                {musicSegs.length > 0
-                  ? musicSegs.map((s, i) => {
-                      const left = (s.start / timelineDuration) * 100;
-                      const width = ((s.end - s.start) / timelineDuration) * 100;
-                      return (
-                        <AudioClip
-                          key={i}
-                          left={left}
-                          width={width}
-                          label="Music"
-                          color="#5a3b82"
-                        />
-                      );
-                    })
-                  : null}
+                {musicSegs.map((s, i) => {
+                  const left = (s.start / timelineDuration) * 100;
+                  const width = ((s.end - s.start) / timelineDuration) * 100;
+                  return (
+                    <AudioClip key={i} left={left} width={width} label="Music" color="#5a3b82" />
+                  );
+                })}
               </TrackRow>
 
               {/* Playhead */}
@@ -511,21 +673,6 @@ export function Timeline({
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-// ─── TrackRow ─────────────────────────────────────────────────────────────────
-
-function TrackRow({ track, children }: { track: TrackDef; children?: ReactNode }) {
-  return (
-    <div
-      className="relative border-b border-white/[0.06] bg-[#1e1e22]"
-      style={{ height: track.height }}
-    >
-      {/* Subtle zebra */}
-      <div className="absolute inset-0 bg-gradient-to-b from-white/[0.015] to-transparent" />
-      {children}
     </div>
   );
 }
