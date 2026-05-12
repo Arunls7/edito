@@ -201,14 +201,14 @@ export const generateMusic = action({
 
     const targetSec = args.durationSeconds ?? 20;
 
-    const audioBlob = await hf.textToAudio({
+    // textToAudio added in @huggingface/inference v3 — cast to avoid type error with v2
+    const audioBlob = await (hf as unknown as Record<string, Function>).textToAudio({
       model: "facebook/musicgen-small",
       inputs: args.description,
       parameters: {
-        // ~50 tokens ≈ 1 second for musicgen-small
         max_new_tokens: Math.min(Math.round(targetSec * 50), 1500),
-      } as Record<string, unknown>,
-    });
+      },
+    }) as Blob;
 
     // Upload to Convex storage
     const uploadUrl = await ctx.storage.generateUploadUrl();
