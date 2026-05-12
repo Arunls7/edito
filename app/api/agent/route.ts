@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import Groq from "groq-sdk";
+import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { hasFullClerkConfig } from "@/lib/clerk-config";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const ToolSchemas = {
   trim_clip: z.object({
@@ -28,73 +28,61 @@ const ToolSchemas = {
   }),
 } as const;
 
-const TOOLS: Groq.Chat.ChatCompletionTool[] = [
+const TOOLS: Anthropic.Tool[] = [
   {
-    type: "function",
-    function: {
-      name: "trim_clip",
-      description: "Réduit un clip à un intervalle donné [start, end] en secondes.",
-      parameters: {
-        type: "object",
-        properties: {
-          clipId: { type: "string" },
-          start: { type: "number", description: "Début en secondes" },
-          end: { type: "number", description: "Fin en secondes" },
-        },
-        required: ["clipId", "start", "end"],
+    name: "trim_clip",
+    description: "Réduit un clip à un intervalle donné [start, end] en secondes.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        clipId: { type: "string" },
+        start: { type: "number", description: "Début en secondes" },
+        end: { type: "number", description: "Fin en secondes" },
       },
+      required: ["clipId", "start", "end"],
     },
   },
   {
-    type: "function",
-    function: {
-      name: "remove_silences",
-      description: "Détecte et supprime les silences d'une piste audio.",
-      parameters: {
-        type: "object",
-        properties: {
-          trackId: { type: "string" },
-          threshold_db: { type: "number", description: "Seuil dB (défaut -40)" },
-          padding_ms: { type: "number", description: "Marge avant/après chaque mot (défaut 150)" },
-        },
-        required: ["trackId"],
+    name: "remove_silences",
+    description: "Détecte et supprime les silences d'une piste audio.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        trackId: { type: "string" },
+        threshold_db: { type: "number", description: "Seuil dB (défaut -40)" },
+        padding_ms: { type: "number", description: "Marge avant/après chaque mot (défaut 150)" },
       },
+      required: ["trackId"],
     },
   },
   {
-    type: "function",
-    function: {
-      name: "add_captions",
-      description: "Génère et insère des captions stylées synchronisées avec le transcript.",
-      parameters: {
-        type: "object",
-        properties: {
-          trackId: { type: "string" },
-          style: { type: "string", enum: ["minimal", "bold", "kinetic"] },
-        },
-        required: ["trackId", "style"],
+    name: "add_captions",
+    description: "Génère et insère des captions stylées synchronisées avec le transcript.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        trackId: { type: "string" },
+        style: { type: "string", enum: ["minimal", "bold", "kinetic"] },
       },
+      required: ["trackId", "style"],
     },
   },
   {
-    type: "function",
-    function: {
-      name: "generate_clips",
-      description: "Découpe une vidéo longue en N clips courts pour les réseaux.",
-      parameters: {
-        type: "object",
-        properties: {
-          sourceClipId: { type: "string" },
-          count: { type: "number", description: "Nombre de clips à générer" },
-          theme: { type: "string", description: "Thème optionnel pour filtrer" },
-        },
-        required: ["sourceClipId", "count"],
+    name: "generate_clips",
+    description: "Découpe une vidéo longue en N clips courts pour les réseaux.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        sourceClipId: { type: "string" },
+        count: { type: "number", description: "Nombre de clips à générer" },
+        theme: { type: "string", description: "Thème optionnel pour filtrer" },
       },
+      required: ["sourceClipId", "count"],
     },
   },
 ];
 
-const SYSTEM_PROMPT = `Tu es Director, l'assistant de montage vidéo d'Rushly.
+const SYSTEM_PROMPT = `Tu es Director, l'assistant de montage vidéo de Rushly.
 
 Tu reçois des demandes en langage naturel et tu les traduis en séquences de tool calls qui modifient la timeline.
 
@@ -127,31 +115,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  const messages: Groq.Chat.ChatCompletionMessageParam[] = [
-    { role: "system", content: SYSTEM_PROMPT },
-    ...body.history.map((h) => ({ role: h.role, content: h.content }) as Groq.Chat.ChatCompletionMessageParam),
+  const messages: Anthropic.MessageParam[] = [
+    ...body.history.map((h) => ({ role: h.role, content: h.content }) as Anthropic.MessageParam),
     { role: "user", content: body.message },
   ];
 
   try {
-    const response = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+    const response = await client.messages.create({
+      model: "claude-sonnet-4-6",
       max_tokens: 1024,
+      system: SYSTEM_PROMPT,
       tools: TOOLS,
       messages,
     });
 
-    const message = response.choices[0]?.message;
-    const text = message?.content ?? "";
+    let text = "";
     const toolCalls: { name: string; input: unknown }[] = [];
 
-    for (const tc of message?.tool_calls ?? []) {
-      const schema = ToolSchemas[tc.function.name as keyof typeof ToolSchemas];
-      if (!schema) continue;
-      try {
-        const parsed = schema.safeParse(JSON.parse(tc.function.arguments));
-        if (parsed.success) toolCalls.push({ name: tc.function.name, input: parsed.data });
-      } catch {}
+    for (const block of response.content) {
+      if (block.type === "text") text = block.text;
+      if (block.type === "tool_use") {
+        const schema = ToolSchemas[block.name as keyof typeof ToolSchemas];
+        if (!schema) continue;
+        const parsed = schema.safeParse(block.input);
+        if (parsed.success) toolCalls.push({ name: block.name, input: parsed.data });
+      }
     }
 
     return NextResponse.json({ text, toolCalls });

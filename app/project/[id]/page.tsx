@@ -113,6 +113,7 @@ export default function ProjectPage({
                 currentTime={currentTime}
                 duration={duration}
                 hasVideo={Boolean(project.videoUrl)}
+                videoUrl={project.videoUrl}
                 onSeek={seek}
               />
             </div>
