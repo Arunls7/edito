@@ -39,8 +39,8 @@ export function DashboardChat() {
       alert("Format vidéo uniquement (mp4, mov, webm…)");
       return;
     }
-    if (f.size > 500 * 1024 * 1024) {
-      alert("Fichier trop lourd (max 500 MB)");
+    if (f.size > 100 * 1024 * 1024) {
+      alert("Fichier trop lourd (max 100 MB sur le plan gratuit)");
       return;
     }
     setFile(f);
@@ -78,6 +78,7 @@ export function DashboardChat() {
           const xhr = new XMLHttpRequest();
           xhr.open("POST", uploadUrl);
           xhr.setRequestHeader("Content-Type", file.type);
+          xhr.timeout = 120_000; // 2 min max
           xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) setProgress((e.loaded / e.total) * 100);
           };
@@ -87,9 +88,10 @@ export function DashboardChat() {
                 storageId: string;
               };
               resolve(sid as Id<"_storage">);
-            } else reject(new Error(`Upload failed: ${xhr.status}`));
+            } else reject(new Error(`Upload échoué (HTTP ${xhr.status})`));
           };
-          xhr.onerror = () => reject(new Error("Network error"));
+          xhr.onerror = () => reject(new Error("Erreur réseau — vérifie ta connexion et réessaie."));
+          xhr.ontimeout = () => reject(new Error("Timeout — fichier trop lourd ou connexion trop lente. Essaie un fichier < 20 MB."));
           xhr.send(file);
         });
 
