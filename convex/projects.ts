@@ -53,6 +53,26 @@ export const createEmpty = mutation({
   },
 });
 
+// Attache une vidéo à un projet existant
+export const setVideo = mutation({
+  args: {
+    projectId: v.id("projects"),
+    storageId: v.id("_storage"),
+    sizeBytes: v.number(),
+    mimeType: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new Error("Projet introuvable");
+    await ctx.db.patch(args.projectId, {
+      storageId: args.storageId,
+      sizeBytes: args.sizeBytes,
+      mimeType: args.mimeType,
+      status: "uploaded",
+    });
+  },
+});
+
 // Liste les projets de l'utilisateur
 export const list = query({
   args: {},

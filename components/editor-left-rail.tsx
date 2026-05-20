@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery, useAction } from "convex/react";
+import { useRef, useState } from "react";
+import { useQuery, useAction, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import {
@@ -61,6 +61,50 @@ export function EditorLeftRail({
   projectId, projectTitle, hasVideo, captionStyle, onCaptionStyleChange,
 }: Props) {
   const [active, setActive] = useState<ToolId>("media");
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const generateUploadUrl = useMutation(api.projects.generateUploadUrl);
+  const setVideo = useMutation(api.projects.setVideo);
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("video/")) { alert("Fichier vidéo uniquement (mp4, mov…)"); return; }
+    if (file.size > 100 * 1024 * 1024) { alert("Max 100 MB sur le plan gratuit."); return; }
+
+    setUploading(true);
+    setUploadProgress(0);
+    try {
+      const uploadUrl = await generateUploadUrl();
+      const storageId = await new Promise<Id<"_storage">>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", uploadUrl);
+        xhr.setRequestHeader("Content-Type", file.type);
+        xhr.timeout = 120_000;
+        xhr.upload.onprogress = (ev) => {
+          if (ev.lengthComputable) setUploadProgress(Math.round((ev.loaded / ev.total) * 100));
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            const { storageId: sid } = JSON.parse(xhr.responseText) as { storageId: string };
+            resolve(sid as Id<"_storage">);
+          } else reject(new Error(`HTTP ${xhr.status}`));
+        };
+        xhr.onerror = () => reject(new Error("Erreur réseau"));
+        xhr.ontimeout = () => reject(new Error("Timeout — fichier trop lourd"));
+        xhr.send(file);
+      });
+      await setVideo({ projectId, storageId, sizeBytes: file.size, mimeType: file.type });
+    } catch (err) {
+      alert(`Upload échoué : ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  }
 
   const panelLabel: Record<ToolId, string> = {
     media:    "MEDIA",
@@ -111,23 +155,25 @@ export function EditorLeftRail({
 
           {active === "media" && (
             <div className="mt-2.5 flex gap-2">
-              <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-[#4A4A4A]" />
-                <input
-                  type="search"
-                  placeholder="Search…"
-                  className="w-full rounded-lg border py-1.5 pl-7 pr-2 font-mono text-[11px] text-[#F5F5F5] placeholder:text-[#4A4A4A] focus:outline-none"
-                  style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.07)" }}
-                  readOnly
-                />
-              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="video/mp4,video/quicktime,video/webm,video/*"
+                className="hidden"
+                onChange={handleFileChange}
+              />
               <button
                 type="button"
-                className="inline-flex shrink-0 items-center gap-1 rounded-lg px-3 py-1.5 font-mono text-[11px] font-semibold tracking-[0.04em] text-white transition hover:opacity-85"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 font-mono text-[11px] font-semibold tracking-[0.04em] text-white transition hover:opacity-85 disabled:opacity-50"
                 style={{ background: "linear-gradient(135deg, #FF6B35 0%, #e04e1e 100%)" }}
               >
-                <Plus className="h-3 w-3" strokeWidth={2.5} />
-                ADD
+                {uploading ? (
+                  <><Loader2 className="h-3 w-3 animate-spin" /> {uploadProgress > 0 ? `${uploadProgress}%` : "Upload…"}</>
+                ) : (
+                  <><Plus className="h-3 w-3" strokeWidth={2.5} /> Importer vidéo</>
+                )}
               </button>
             </div>
           )}
