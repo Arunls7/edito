@@ -40,6 +40,7 @@ export default function ProjectPage({
   const [directorBusy, setDirectorBusy] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [captionStyle, setCaptionStyle] = useState<CaptionStyle>("minimal");
+  const [localVideoUrl, setLocalVideoUrl] = useState<string | null>(null);
 
   type Seg = { id: string; start: number; end: number; trackId?: string; text?: string; sourceStart: number; sourceEnd: number };
   const allSegs = (segments as Seg[] | undefined) ?? [];
@@ -118,15 +119,16 @@ export default function ProjectPage({
             <EditorLeftRail
               projectId={projectId}
               projectTitle={project.title}
-              hasVideo={Boolean(project.videoUrl)}
+              hasVideo={Boolean(localVideoUrl ?? project.videoUrl)}
               captionStyle={captionStyle}
               onCaptionStyleChange={setCaptionStyle}
+              onLocalVideo={(url) => setLocalVideoUrl(url)}
             />
 
             <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center bg-gradient-to-b from-[#111113] via-[#0e0e10] to-[#0b0b0d] px-3 py-4 md:px-6">
               <VideoPlayer
                 ref={videoRef}
-                videoUrl={project.videoUrl}
+                videoUrl={localVideoUrl ?? project.videoUrl}
                 captions={captions}
                 captionStyle={captionStyle}
                 segments={mainSegs}
@@ -144,8 +146,8 @@ export default function ProjectPage({
               projectId={projectId}
               currentTime={currentTime}
               duration={duration}
-              hasVideo={Boolean(project.videoUrl)}
-              videoUrl={project.videoUrl}
+              hasVideo={Boolean(localVideoUrl ?? project.videoUrl)}
+              videoUrl={localVideoUrl ?? project.videoUrl}
               onSeek={seek}
             />
           </div>

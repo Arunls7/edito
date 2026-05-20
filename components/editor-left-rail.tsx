@@ -34,6 +34,7 @@ type Props = {
   hasVideo: boolean;
   captionStyle: CaptionStyle;
   onCaptionStyleChange: (s: CaptionStyle) => void;
+  onLocalVideo?: (blobUrl: string, fileName: string) => void;
 };
 
 const TOOLS: { id: ToolId; icon: typeof LayoutGrid; label: string }[] = [
@@ -58,52 +59,20 @@ function fmtTime(s: number): string {
 // ─── EditorLeftRail ───────────────────────────────────────────────────────────
 
 export function EditorLeftRail({
-  projectId, projectTitle, hasVideo, captionStyle, onCaptionStyleChange,
+  projectId, projectTitle, hasVideo, captionStyle, onCaptionStyleChange, onLocalVideo,
 }: Props) {
   const [active, setActive] = useState<ToolId>("media");
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [localFileName, setLocalFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const generateUploadUrl = useMutation(api.projects.generateUploadUrl);
-  const setVideo = useMutation(api.projects.setVideo);
-
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    if (!file.type.startsWith("video/")) { alert("Fichier vidéo uniquement (mp4, mov…)"); return; }
-    if (file.size > 100 * 1024 * 1024) { alert("Max 100 MB sur le plan gratuit."); return; }
-
-    setUploading(true);
-    setUploadProgress(0);
-    try {
-      const uploadUrl = await generateUploadUrl();
-      const storageId = await new Promise<Id<"_storage">>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", uploadUrl);
-        xhr.setRequestHeader("Content-Type", file.type);
-        xhr.timeout = 120_000;
-        xhr.upload.onprogress = (ev) => {
-          if (ev.lengthComputable) setUploadProgress(Math.round((ev.loaded / ev.total) * 100));
-        };
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            const { storageId: sid } = JSON.parse(xhr.responseText) as { storageId: string };
-            resolve(sid as Id<"_storage">);
-          } else reject(new Error(`HTTP ${xhr.status}`));
-        };
-        xhr.onerror = () => reject(new Error("Erreur réseau"));
-        xhr.ontimeout = () => reject(new Error("Timeout — fichier trop lourd"));
-        xhr.send(file);
-      });
-      await setVideo({ projectId, storageId, sizeBytes: file.size, mimeType: file.type });
-    } catch (err) {
-      alert(`Upload échoué : ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setUploading(false);
-      setUploadProgress(0);
-    }
+    if (!file.type.startsWith("video/")) { alert("Fichier vidéo uniquement (mp4, mov, webm…)"); return; }
+    const blobUrl = URL.createObjectURL(file);
+    setLocalFileName(file.name);
+    onLocalVideo?.(blobUrl, file.name);
   }
 
   const panelLabel: Record<ToolId, string> = {
@@ -165,15 +134,11 @@ export function EditorLeftRail({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 font-mono text-[11px] font-semibold tracking-[0.04em] text-white transition hover:opacity-85 disabled:opacity-50"
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 font-mono text-[11px] font-semibold tracking-[0.04em] text-white transition hover:opacity-85"
                 style={{ background: "linear-gradient(135deg, #FF6B35 0%, #e04e1e 100%)" }}
               >
-                {uploading ? (
-                  <><Loader2 className="h-3 w-3 animate-spin" /> {uploadProgress > 0 ? `${uploadProgress}%` : "Upload…"}</>
-                ) : (
-                  <><Plus className="h-3 w-3" strokeWidth={2.5} /> Importer vidéo</>
-                )}
+                <Plus className="h-3 w-3" strokeWidth={2.5} />
+                {localFileName ?? "Importer vidéo"}
               </button>
             </div>
           )}
