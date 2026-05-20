@@ -125,10 +125,16 @@ export async function POST(req: NextRequest) {
     });
 
     // Convert history: "assistant" → "model" for Gemini
-    const history = body.history.map((h) => ({
-      role: h.role === "assistant" ? "model" : "user",
-      parts: [{ text: h.content }],
-    }));
+    // Gemini requires history to start with a 'user' turn — strip leading model messages
+    const history = body.history
+      .map((h) => ({
+        role: h.role === "assistant" ? "model" : "user",
+        parts: [{ text: h.content }],
+      }))
+      .filter((_, i, arr) => {
+        const firstUser = arr.findIndex((m) => m.role === "user");
+        return firstUser === -1 || i >= firstUser;
+      });
 
     const chat = model.startChat({ history });
     const result = await chat.sendMessage(body.message);
