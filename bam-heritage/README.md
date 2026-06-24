@@ -12,14 +12,13 @@ Club de boxe et MMA aux Mureaux, Yvelines. Affilie FFB.
 - **Emails** : Resend
 - **Deploiement** : Vercel (frontend) + Railway (backend)
 
-## Installation rapide
+## Installation
 
 ### Backend
 
 ```bash
-cd bam-heritage/backend
+cd backend
 cp .env.example .env
-# Remplir les variables d'environnement
 npm install
 npx prisma generate
 npx prisma migrate dev --name init
@@ -29,37 +28,8 @@ npm run dev
 ### Frontend
 
 ```bash
-cd bam-heritage/frontend
+cd frontend
 cp .env.example .env
 npm install
 npm run dev
 ```
-
-## Variables d'environnement
-
-### Backend (`backend/.env`)
-
-| Variable | Description |
-|---|---|
-| `DATABASE_URL` | URL PostgreSQL (Supabase) |
-| `JWT_SECRET` | Cle secrete JWT (min 32 chars) |
-| `STRIPE_SECRET_KEY` | Cle secrete Stripe (`sk_...`) |
-| `STRIPE_WEBHOOK_SECRET` | Secret webhook Stripe (`whsec_...`) |
-| `HELLOASSO_CLIENT_ID` | ID client HelloAsso |
-| `HELLOASSO_CLIENT_SECRET` | Secret HelloAsso |
-| `RESEND_API_KEY` | Cle API Resend (`re_...`) |
-| `FRONTEND_URL` | URL du frontend |
-
-### Frontend (`frontend/.env`)
-
-| Variable | Description |
-|---|---|
-| `VITE_API_URL` | URL de l'API backend |
-| `VITE_STRIPE_PUBLIC_KEY` | Cle publique Stripe (`pk_...`) |
-
-## Webhook Stripe
-
-Configurer un webhook Stripe vers :
-`https://votre-backend.railway.app/api/webhook/stripe`
-
-Evenement : `checkout.session.completed`

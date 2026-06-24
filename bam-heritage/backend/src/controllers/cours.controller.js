@@ -13,36 +13,28 @@ const getAll = async (req, res) => {
       orderBy: [{ jour: 'asc' }, { heureDebut: 'asc' }],
     });
     res.json(cours);
-  } catch {
-    res.status(500).json({ error: 'Erreur serveur' });
-  }
+  } catch { res.status(500).json({ error: 'Erreur serveur' }); }
 };
 
 const create = async (req, res) => {
   try {
     const cours = await prisma.cours.create({ data: req.body });
     res.status(201).json(cours);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
+  } catch (err) { res.status(400).json({ error: err.message }); }
 };
 
 const update = async (req, res) => {
   try {
     const cours = await prisma.cours.update({ where: { id: req.params.id }, data: req.body });
     res.json(cours);
-  } catch {
-    res.status(404).json({ error: 'Cours introuvable' });
-  }
+  } catch { res.status(404).json({ error: 'Cours introuvable' }); }
 };
 
 const remove = async (req, res) => {
   try {
     await prisma.cours.update({ where: { id: req.params.id }, data: { actif: false } });
     res.json({ success: true });
-  } catch {
-    res.status(404).json({ error: 'Cours introuvable' });
-  }
+  } catch { res.status(404).json({ error: 'Cours introuvable' }); }
 };
 
 const reserver = async (req, res) => {
@@ -61,18 +53,14 @@ const reserver = async (req, res) => {
       update: { statut: 'CONFIRMEE' },
     });
     res.status(201).json(reservation);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
+  } catch (err) { res.status(400).json({ error: err.message }); }
 };
 
 const annulerReservation = async (req, res) => {
   try {
     await prisma.reservation.update({ where: { id: req.params.id }, data: { statut: 'ANNULEE' } });
     res.json({ success: true });
-  } catch {
-    res.status(404).json({ error: 'Reservation introuvable' });
-  }
+  } catch { res.status(404).json({ error: 'Réservation introuvable' }); }
 };
 
 const getMesReservations = async (req, res) => {
@@ -82,9 +70,7 @@ const getMesReservations = async (req, res) => {
       include: { cours: { include: { coach: true } } },
     });
     res.json(reservations);
-  } catch {
-    res.status(500).json({ error: 'Erreur serveur' });
-  }
+  } catch { res.status(500).json({ error: 'Erreur serveur' }); }
 };
 
 module.exports = { getAll, create, update, remove, reserver, annulerReservation, getMesReservations };

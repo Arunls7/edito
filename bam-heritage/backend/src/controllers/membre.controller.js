@@ -9,24 +9,19 @@ const getDashboard = async (req, res) => {
       prisma.abonnement.findMany({ where: { userId: req.user.id }, orderBy: { createdAt: 'desc' }, take: 1 }),
       prisma.reservation.findMany({ where: { userId: req.user.id, statut: 'CONFIRMEE' }, include: { cours: { include: { coach: true } } }, take: 5 }),
     ]);
-    res.json({ user, abonnement: abonnements[0] || null, prochainsCoursReserves: reservations });
-  } catch {
-    res.status(500).json({ error: 'Erreur serveur' });
-  }
+    res.json({ user, abonnement: abonnements[0] || null, prochainsCoursRéservés: reservations });
+  } catch { res.status(500).json({ error: 'Erreur serveur' }); }
 };
 
 const updateProfil = async (req, res) => {
   try {
     const { nom, prenom, telephone } = req.body;
     const user = await prisma.user.update({
-      where: { id: req.user.id },
-      data: { nom, prenom, telephone },
+      where: { id: req.user.id }, data: { nom, prenom, telephone },
       select: { id: true, email: true, nom: true, prenom: true, telephone: true },
     });
     res.json(user);
-  } catch {
-    res.status(500).json({ error: 'Erreur serveur' });
-  }
+  } catch { res.status(500).json({ error: 'Erreur serveur' }); }
 };
 
 const updatePassword = async (req, res) => {
@@ -38,18 +33,14 @@ const updatePassword = async (req, res) => {
     const hash = await bcrypt.hash(newPassword, 12);
     await prisma.user.update({ where: { id: req.user.id }, data: { password: hash } });
     res.json({ success: true });
-  } catch {
-    res.status(500).json({ error: 'Erreur serveur' });
-  }
+  } catch { res.status(500).json({ error: 'Erreur serveur' }); }
 };
 
 const getPaiements = async (req, res) => {
   try {
     const abonnements = await prisma.abonnement.findMany({ where: { userId: req.user.id }, orderBy: { createdAt: 'desc' } });
     res.json(abonnements);
-  } catch {
-    res.status(500).json({ error: 'Erreur serveur' });
-  }
+  } catch { res.status(500).json({ error: 'Erreur serveur' }); }
 };
 
 module.exports = { getDashboard, updateProfil, updatePassword, getPaiements };
