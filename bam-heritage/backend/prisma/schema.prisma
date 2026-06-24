@@ -1,0 +1,213 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  MEMBRE
+  ADMIN
+}
+
+enum TypeAbonnement {
+  MENSUEL
+  ANNUEL
+}
+
+enum StatutAbonnement {
+  ACTIF
+  EXPIRE
+  EN_ATTENTE
+}
+
+enum Discipline {
+  BOXE
+  MMA
+}
+
+enum Niveau {
+  LOISIR
+  COMPETITION
+  JEUNES
+}
+
+enum StatutReservation {
+  CONFIRMEE
+  ANNULEE
+  EN_ATTENTE
+}
+
+enum TypeCommande {
+  BILLET
+  PRODUIT
+}
+
+enum StatutCommande {
+  EN_ATTENTE
+  PAYEE
+  ANNULEE
+  REMBOURSEE
+}
+
+enum JourSemaine {
+  LUNDI
+  MARDI
+  MERCREDI
+  JEUDI
+  VENDREDI
+  SAMEDI
+  DIMANCHE
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  password     String
+  nom          String
+  prenom       String
+  role         Role          @default(MEMBRE)
+  telephone    String?
+  dateNaissance DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  abonnements  Abonnement[]
+  reservations Reservation[]
+  commandes    Commande[]
+
+  @@map("users")
+}
+
+model Abonnement {
+  id           String           @id @default(cuid())
+  userId       String
+  type         TypeAbonnement
+  statut       StatutAbonnement @default(EN_ATTENTE)
+  helloassoId  String?
+  startDate    DateTime?
+  endDate      DateTime?
+  montant      Float?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("abonnements")
+}
+
+model Coach {
+  id        String   @id @default(cuid())
+  nom       String
+  prenom    String
+  email     String?
+  actif     Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  cours     Cours[]
+
+  @@map("coachs")
+}
+
+model Cours {
+  id          String        @id @default(cuid())
+  nom         String
+  discipline  Discipline
+  niveau      Niveau
+  jour        JourSemaine
+  heureDebut  String
+  heureFin    String
+  capacite    Int           @default(20)
+  coachId     String?
+  actif       Boolean       @default(true)
+  description String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  coach        Coach?        @relation(fields: [coachId], references: [id])
+  reservations Reservation[]
+
+  @@map("cours")
+}
+
+model Reservation {
+  id        String            @id @default(cuid())
+  userId    String
+  coursId   String
+  statut    StatutReservation @default(EN_ATTENTE)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cours     Cours             @relation(fields: [coursId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, coursId])
+  @@map("reservations")
+}
+
+model Evenement {
+  id               String   @id @default(cuid())
+  nom              String
+  description      String?
+  date             DateTime
+  lieu             String
+  prix             Float
+  placesTotal      Int
+  placesRestantes  Int
+  actif            Boolean  @default(false)
+  stripeId         String?
+  imageUrl         String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  commandes        Commande[]
+
+  @@map("evenements")
+}
+
+model Produit {
+  id          String   @id @default(cuid())
+  nom         String
+  description String?
+  prix        Float
+  stock       Int      @default(0)
+  imageUrl    String?
+  actif       Boolean  @default(false)
+  stripeId    String?
+  categorie   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  commandes   Commande[]
+
+  @@map("produits")
+}
+
+model Commande {
+  id              String         @id @default(cuid())
+  userId          String
+  type            TypeCommande
+  itemId          String
+  montant         Float
+  statut          StatutCommande @default(EN_ATTENTE)
+  stripeSessionId String?
+  quantite        Int            @default(1)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  evenement       Evenement?     @relation(fields: [itemId], references: [id])
+  produit         Produit?       @relation(fields: [itemId], references: [id])
+
+  @@map("commandes")
+}
+
+model PopupConfig {
+  id             String   @id @default(cuid())
+  boutiqueActive Boolean  @default(false)
+  updatedAt      DateTime @updatedAt
+
+  @@map("popup_config")
+}
