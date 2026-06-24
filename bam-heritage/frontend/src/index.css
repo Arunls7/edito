@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { border-radius: 0; }
+  html { scroll-behavior: smooth; }
+  body { @apply bg-noir text-white font-inter; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3, h4, h5 { @apply font-bebas tracking-wide; }
+}
+
+@layer components {
+  .btn-rouge {
+    @apply bg-rouge text-white px-6 py-3 font-inter font-semibold text-sm uppercase tracking-widest
+           hover:bg-rouge-hover transition-colors duration-200 cursor-pointer;
+  }
+  .btn-outline {
+    @apply border border-white text-white px-6 py-3 font-inter font-semibold text-sm uppercase tracking-widest
+           hover:bg-white hover:text-noir transition-colors duration-200 cursor-pointer;
+  }
+  .card-noir { @apply bg-noir-card border border-white/10; }
+  .accent-line { @apply w-[3px] bg-rouge; }
+  .section-title { @apply font-bebas text-5xl md:text-7xl text-white tracking-wider; }
+}
+
+@keyframes ticker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.ticker-track {
+  animation: ticker 30s linear infinite;
+  display: flex;
+  white-space: nowrap;
+}
+.ticker-track:hover { animation-play-state: paused; }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: #161616; }
+::-webkit-scrollbar-thumb { background: #CC1F1F; }
