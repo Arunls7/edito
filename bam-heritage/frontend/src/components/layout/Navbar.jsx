@@ -26,28 +26,18 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? 'bg-noir-dark shadow-lg shadow-black/50' : 'bg-transparent'
-      }`}>
+      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-noir-dark shadow-lg shadow-black/50' : 'bg-transparent'}`}>
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link to="/" className="font-bebas text-2xl text-white tracking-wider">
-            BAM<span className="text-rouge"> L'HERITAGE</span>
-          </Link>
+          <Link to="/" className="font-bebas text-2xl text-white tracking-wider">BAM<span className="text-rouge"> L'HERITAGE</span></Link>
           <div className="hidden md:flex items-center gap-8">
             {navLinks.map((link) => (
-              <a key={link.href} href={link.href}
-                className="text-white/70 hover:text-white font-inter text-sm uppercase tracking-widest transition-colors duration-200">
-                {link.label}
-              </a>
+              <a key={link.href} href={link.href} className="text-white/70 hover:text-white font-inter text-sm uppercase tracking-widest transition-colors duration-200">{link.label}</a>
             ))}
           </div>
           <div className="hidden md:flex items-center gap-4">
             {user ? (
               <div className="flex items-center gap-4">
-                <Link to={user.role === 'ADMIN' ? '/admin' : '/membre/dashboard'}
-                  className="text-white/70 hover:text-white font-inter text-sm uppercase tracking-widest transition-colors">
-                  {user.role === 'ADMIN' ? 'Admin' : 'Mon espace'}
-                </Link>
+                <Link to={user.role === 'ADMIN' ? '/admin' : '/membre/dashboard'} className="text-white/70 hover:text-white font-inter text-sm uppercase tracking-widest transition-colors">{user.role === 'ADMIN' ? 'Admin' : 'Mon espace'}</Link>
                 <button onClick={logout} className="text-white/40 hover:text-white font-inter text-sm transition-colors">Deconnexion</button>
               </div>
             ) : (
@@ -63,11 +53,8 @@ export default function Navbar() {
         </div>
         {menuOpen && (
           <div className="md:hidden bg-noir-dark border-t border-white/10 px-4 py-6 flex flex-col gap-5">
-            {navLinks.map((link) => (
-              <a key={link.href} href={link.href} onClick={() => setMenuOpen(false)}
-                className="text-white font-inter text-sm uppercase tracking-widest">{link.label}</a>
-            ))}
-            <button onClick={() => { setMenuOpen(false); setAuthModal(true); }} className="btn-rouge text-xs py-3 mt-2">S'inscrire</button>
+            {navLinks.map((link) => (<a key={link.href} href={link.href} onClick={() => setMenuOpen(false)} className="text-white font-inter text-sm uppercase tracking-widest">{link.label}</a>))}
+            <button onClick={() => { setMenuOpen(false); user ? navigate('/membre/dashboard') : setAuthModal(true); }} className="btn-rouge text-xs py-3 mt-2">S'inscrire</button>
           </div>
         )}
       </nav>

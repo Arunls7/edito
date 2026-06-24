@@ -26,7 +26,6 @@ import AdminPopup from './pages/admin/AdminPopup';
 function HomePage() {
   const [popupBoutique, setPopupBoutique] = useState(false);
   const [popupBilletterie, setPopupBilletterie] = useState(false);
-
   useEffect(() => {
     const checkPopups = async () => {
       try {
@@ -34,26 +33,17 @@ function HomePage() {
           api.get('/admin/popup').catch(() => ({ data: { boutiqueActive: false } })),
           api.get('/evenements').catch(() => ({ data: [] })),
         ]);
-        if (configRes.data?.boutiqueActive) {
-          setPopupBoutique(true);
-        } else if (eventsRes.data?.length > 0) {
-          setPopupBilletterie(true);
-        }
+        if (configRes.data?.boutiqueActive) setPopupBoutique(true);
+        else if (eventsRes.data?.length > 0) setPopupBilletterie(true);
       } catch {}
     };
     const timer = setTimeout(checkPopups, 3000);
     return () => clearTimeout(timer);
   }, []);
-
   return (
     <>
       <Navbar />
-      <main>
-        <Hero />
-        <Disciplines />
-        <Champions />
-        <Planning />
-      </main>
+      <main><Hero /><Disciplines /><Champions /><Planning /></main>
       <Footer />
       {popupBoutique && <PopupBoutique onClose={() => setPopupBoutique(false)} />}
       {popupBilletterie && !popupBoutique && <PopupBilletterie onClose={() => setPopupBilletterie(false)} />}
@@ -80,13 +70,7 @@ export default function App() {
           <Route path="produits" element={<AdminProduits />} />
           <Route path="popup" element={<AdminPopup />} />
         </Route>
-        <Route path="*" element={
-          <div className="min-h-screen bg-noir flex items-center justify-center flex-col gap-4">
-            <h1 className="font-bebas text-8xl text-white">404</h1>
-            <p className="font-inter text-white/40 text-sm">Page introuvable</p>
-            <a href="/" className="btn-rouge text-xs py-2 px-6 mt-4">Retour a l'accueil</a>
-          </div>
-        } />
+        <Route path="*" element={<div className="min-h-screen bg-noir flex items-center justify-center flex-col gap-4"><h1 className="font-bebas text-8xl text-white">404</h1><a href="/" className="btn-rouge text-xs py-2 px-6 mt-4">Retour</a></div>} />
       </Routes>
     </AuthProvider>
   );
